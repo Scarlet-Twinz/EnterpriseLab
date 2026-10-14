@@ -25,9 +25,9 @@ The lab now uses fictional company identifiers, not generic `tenant_a`, `tenant_
 
 | Fictional company | Tenant ID | Default Engine role |
 |---|---|---|
-| Northstar Operations Ltd | `northstar` | `proxima_tenant_northstar` |
-| Bluehaven Logistics Ltd | `bluehaven` | `proxima_tenant_bluehaven` |
-| Cedarstone Health Systems | `cedarstone` | `proxima_tenant_cedarstone` |
+| Northstar Operations Ltd | `northstar` | `labrole_northstar` |
+| Bluehaven Logistics Ltd | `bluehaven` | `labrole_bluehaven` |
+| Cedarstone Health Systems | `cedarstone` | `labrole_cedarstone` |
 
 The Engine currently resolves a PostgreSQL role using one configured global prefix followed by the verified tenant ID:
 
@@ -35,7 +35,7 @@ The Engine currently resolves a PostgreSQL role using one configured global pref
 role_name = PROXIMA_TENANT_ROLE_PREFIX + verified_tenant_id
 ```
 
-The default prefix is `proxima_tenant_`. It is configurable through `PROXIMA_TENANT_ROLE_PREFIX`, and the prefix must contain only ASCII letters, digits, and underscores. It cannot currently be empty.
+The Engine's default prefix is `proxima_tenant_`. Enterprise Lab deliberately configures `PROXIMA_TENANT_ROLE_PREFIX=labrole_` and its disposable database/RLS fixtures use `labrole_northstar`, `labrole_bluehaven`, and `labrole_cedarstone`. The prefix is configurable through `PROXIMA_TENANT_ROLE_PREFIX`, and the prefix must contain only ASCII letters, digits, and underscores. It cannot currently be empty. The live CI run tests this non-default prefix against the actual Engine.
 
 **A company is not required to use the default prefix.** For example, if a company's database roles are named `tenant_a` and `tenant_b`, it can configure prefix `tenant_` and use verified tenant IDs `a` and `b`; the Engine then resolves those IDs to the matching roles. If the tenant IDs themselves are `tenant_a` and `tenant_b`, the same prefix instead resolves to `tenant_tenant_a` and `tenant_tenant_b`.
 
