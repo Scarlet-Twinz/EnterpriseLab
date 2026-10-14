@@ -39,7 +39,7 @@ LAB_TENANT_A_DB_PASSWORD=$tenantAPassword
 LAB_TENANT_B_DB_PASSWORD=$tenantBPassword
 LAB_TENANT_C_DB_PASSWORD=$tenantCPassword
 LAB_TENANT_DB_PASSWORDS=$tenantPasswords
-PROXIMA_DATABASE_URL=postgresql://proxima@127.0.0.1:6432/enterprise_lab
+PROXIMA_DATABASE_URL=postgresql://proxima@127.0.0.1:6432/enterprise_lab?sslmode=disable
 LAB_ADMIN_DATABASE_URL=postgresql://lab_admin:$adminPassword@127.0.0.1:55432/enterprise_lab
 LAB_BASE_URL=http://127.0.0.1:8088
 LAB_API_KEY_A=$keyA
