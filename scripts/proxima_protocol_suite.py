@@ -38,7 +38,7 @@ def make_token(tenant: str, *, ttl: int = 300, tamper: bool = False) -> str:
     payload = f"v1.{tenant}.{int(time.time()) + ttl}"
     signature = hmac.new(secret.encode(), payload.encode(), hashlib.sha256).hexdigest()
     if tamper:
-        signature = ("0" if signature[-1] != "0" else "1") + signature[1:]
+        signature = ("0" if signature[0] != "0" else "1") + signature[1:]
     return f"{payload}.{signature}"
 
 
