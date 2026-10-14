@@ -13,14 +13,63 @@ permissions:
 jobs:
   test:
     runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_DB: enterprise_lab
+          POSTGRES_USER: lab_admin
+          POSTGRES_PASSWORD: ci-admin-password
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U lab_admin -d enterprise_lab"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 12
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
           cache: pip
+      - name: Install PostgreSQL client
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y postgresql-client
       - name: Install project
         run: python -m pip install -e ".[dev]"
+      - name: Initialize isolated test database
+        env:
+          PGHOST: 127.0.0.1
+          PGPORT: "5432"
+          PGUSER: lab_admin
+          PGPASSWORD: ci-admin-password
+          PGDATABASE: enterprise_lab
+          PROXIMA_GATEWAY_PASSWORD: ci-gateway-password
+          POSTGRES_USER: lab_admin
+          POSTGRES_DB: enterprise_lab
+        run: |
+          psql -v ON_ERROR_STOP=1 -f db/schema.sql
+          sh db/02-create-engine-role.sh
+      - name: Verify PostgreSQL tenant isolation
+        env:
+          PGHOST: 127.0.0.1
+          PGPORT: "5432"
+          PGUSER: proxima_gateway
+          PGPASSWORD: ci-gateway-password
+          PGDATABASE: enterprise_lab
+        run: |
+          own_rows="$(psql -v ON_ERROR_STOP=1 -Atqc "SET ROLE tenant_a; SELECT count(*) FROM customers WHERE tenant_id = 'tenant_a'")"
+          cross_rows="$(psql -v ON_ERROR_STOP=1 -Atqc "SET ROLE tenant_a; SELECT count(*) FROM customers WHERE tenant_id = 'tenant_b'")"
+          test "$own_rows" -ge 1
+          test "$cross_rows" -eq 0
+          if psql -v ON_ERROR_STOP=1 -qc "SET ROLE tenant_a; INSERT INTO customers (tenant_id, name, email, status) VALUES ('tenant_b', 'CI CROSS-TENANT PROBE', 'ci-cross-tenant@example.test', 'active')"; then
+            echo "FAIL: tenant A inserted a tenant B row"
+            exit 1
+          else
+            echo "PASS: PostgreSQL RLS rejected cross-tenant insert"
+          fi
       - name: Lint
         run: ruff check app tests scripts
       - name: Unit tests
