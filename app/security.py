@@ -38,7 +38,7 @@ def _api_keys() -> dict[str, dict[str, str]]:
     except json.JSONDecodeError as exc:
         raise RuntimeError("LAB_API_KEYS must be a JSON object") from exc
     if not isinstance(value, dict):
-        raise RuntimeError("LAB_API_KEYS must be a JSON object")
+        raise TypeError("LAB_API_KEYS must be a JSON object")
 
     normalized: dict[str, dict[str, str]] = {}
     for key, identity in value.items():
