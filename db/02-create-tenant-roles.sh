@@ -8,13 +8,13 @@ set -eu
 
 psql --username "$POSTGRES_USER" --dbname "$POSTGRES_DB" \
   --set=ON_ERROR_STOP=1 \
-  --set=tenant_a_password="$LAB_TENANT_A_DB_PASSWORD" \
-  --set=tenant_b_password="$LAB_TENANT_B_DB_PASSWORD" \
-  --set=tenant_c_password="$LAB_TENANT_C_DB_PASSWORD" <<'SQL'
-ALTER ROLE proxima_tenant_tenant_a LOGIN PASSWORD :'tenant_a_password'
+  --set=northstar_password="$LAB_TENANT_A_DB_PASSWORD" \
+  --set=bluehaven_password="$LAB_TENANT_B_DB_PASSWORD" \
+  --set=cedarstone_password="$LAB_TENANT_C_DB_PASSWORD" <<'SQL'
+ALTER ROLE proxima_tenant_northstar LOGIN PASSWORD :'northstar_password'
     NOSUPERUSER NOCREATEDB NOCREATEROLE NOBYPASSRLS;
-ALTER ROLE proxima_tenant_tenant_b LOGIN PASSWORD :'tenant_b_password'
+ALTER ROLE proxima_tenant_bluehaven LOGIN PASSWORD :'bluehaven_password'
     NOSUPERUSER NOCREATEDB NOCREATEROLE NOBYPASSRLS;
-ALTER ROLE proxima_tenant_tenant_c LOGIN PASSWORD :'tenant_c_password'
+ALTER ROLE proxima_tenant_cedarstone LOGIN PASSWORD :'cedarstone_password'
     NOSUPERUSER NOCREATEDB NOCREATEROLE NOBYPASSRLS;
 SQL
