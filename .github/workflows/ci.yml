@@ -58,15 +58,15 @@ jobs:
         env:
           PGHOST: 127.0.0.1
           PGPORT: "5432"
-          PGUSER: proxima_tenant_tenant_a
+          PGUSER: proxima_tenant_northstar
           PGPASSWORD: ci-tenant-a-password
           PGDATABASE: enterprise_lab
         run: |
-          own_rows="$(psql -v ON_ERROR_STOP=1 -Atqc "SELECT count(*) FROM customers WHERE tenant_id = 'tenant_a'")"
-          cross_rows="$(psql -v ON_ERROR_STOP=1 -Atqc "SELECT count(*) FROM customers WHERE tenant_id = 'tenant_b'")"
+          own_rows="$(psql -v ON_ERROR_STOP=1 -Atqc "SELECT count(*) FROM customers WHERE tenant_id = 'northstar'")"
+          cross_rows="$(psql -v ON_ERROR_STOP=1 -Atqc "SELECT count(*) FROM customers WHERE tenant_id = 'bluehaven'")"
           test "$own_rows" -ge 1
           test "$cross_rows" -eq 0
-          if psql -v ON_ERROR_STOP=1 -qc "INSERT INTO customers (tenant_id, name, email, status) VALUES ('tenant_b', 'CI CROSS-TENANT PROBE', 'ci-cross-tenant@example.test', 'active')"; then
+          if psql -v ON_ERROR_STOP=1 -qc "INSERT INTO customers (tenant_id, name, email, status) VALUES ('bluehaven', 'CI CROSS-TENANT PROBE', 'ci-cross-tenant@example.test', 'active')"; then
             echo "FAIL: tenant A inserted a tenant B row"
             exit 1
           else
@@ -87,8 +87,8 @@ jobs:
       PROXIMA_UPSTREAM_TLS_MODE: disable
       PROXIMA_TENANT_SIGNING_KEY: ci-enterprise-lab-signing-key-that-is-over-32-bytes
       PROXIMA_DATABASE_URL: postgresql://proxima@127.0.0.1:6432/enterprise_lab?sslmode=disable
-      LAB_TENANT_DB_PASSWORDS: '{"tenant_a":"ci-tenant-a-password","tenant_b":"ci-tenant-b-password","tenant_c":"ci-tenant-c-password"}'
-      LAB_API_KEYS: '{"ci-key-a":{"tenant_id":"tenant_a","role":"admin"},"ci-key-b":{"tenant_id":"tenant_b","role":"operator"},"ci-key-c":{"tenant_id":"tenant_c","role":"viewer"}}'
+      LAB_TENANT_DB_PASSWORDS: '{"northstar":"ci-tenant-a-password","bluehaven":"ci-tenant-b-password","cedarstone":"ci-tenant-c-password"}'
+      LAB_API_KEYS: '{"ci-key-a":{"tenant_id":"northstar","role":"admin"},"ci-key-b":{"tenant_id":"bluehaven","role":"operator"},"ci-key-c":{"tenant_id":"cedarstone","role":"viewer"}}'
       LAB_BASE_URL: http://127.0.0.1:8088
       LAB_API_KEY_A: ci-key-a
       LAB_API_KEY_B: ci-key-b
