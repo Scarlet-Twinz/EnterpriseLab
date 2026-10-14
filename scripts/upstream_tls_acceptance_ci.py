@@ -101,7 +101,7 @@ def main() -> int:
                  "-subj", "/CN=Untrusted Lab CA"])
 
             # Mount a disposable certificate directory with PostgreSQL-compatible key ownership/mode.
-            run(["sudo", "chown", "999:999", str(server_key)])
+            run(["sudo", "chown", "70:70", str(server_key)])
             run(["sudo", "chmod", "600", str(server_key)])
             run(["sudo", "chown", "999:999", str(server_cert)])
             run(["sudo", "chmod", "644", str(server_cert)])
