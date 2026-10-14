@@ -74,9 +74,9 @@ def make_proxima_token(tenant_id: str, *, now: int | None = None, ttl_seconds: i
     """
     if not _TENANT_RE.fullmatch(tenant_id):
         raise ValueError("Invalid tenant ID")
-    secret = os.getenv("PROXIMA_SIGNING_KEY", "")
+    secret = os.getenv("PROXIMA_TENANT_SIGNING_KEY", "")
     if len(secret.encode("utf-8")) < 32:
-        raise RuntimeError("PROXIMA_SIGNING_KEY must contain at least 32 bytes")
+        raise RuntimeError("PROXIMA_TENANT_SIGNING_KEY must contain at least 32 bytes")
     try:
         configured_ttl = int(os.getenv("PROXIMA_TOKEN_TTL_SECONDS", "300"))
     except ValueError as exc:
