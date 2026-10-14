@@ -1,18 +1,18 @@
 -- Run only against a disposable Enterprise Lab upstream PostgreSQL database
 -- using a database administrator. Application traffic must use Proxima Engine.
--- The Engine's default role prefix maps northstar, bluehaven, and cedarstone to their proxima_tenant_* roles.
+-- This lab deliberately uses the configurable labrole_ prefix to demonstrate that role naming is not fixed to the Engine default.
 \set ON_ERROR_STOP on
 
 DO $$
 BEGIN
-    IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'proxima_tenant_northstar') THEN
-        CREATE ROLE proxima_tenant_northstar NOLOGIN NOSUPERUSER NOBYPASSRLS;
+    IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'labrole_northstar') THEN
+        CREATE ROLE labrole_northstar NOLOGIN NOSUPERUSER NOBYPASSRLS;
     END IF;
-    IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'proxima_tenant_bluehaven') THEN
-        CREATE ROLE proxima_tenant_bluehaven NOLOGIN NOSUPERUSER NOBYPASSRLS;
+    IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'labrole_bluehaven') THEN
+        CREATE ROLE labrole_bluehaven NOLOGIN NOSUPERUSER NOBYPASSRLS;
     END IF;
-    IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'proxima_tenant_cedarstone') THEN
-        CREATE ROLE proxima_tenant_cedarstone NOLOGIN NOSUPERUSER NOBYPASSRLS;
+    IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'labrole_cedarstone') THEN
+        CREATE ROLE labrole_cedarstone NOLOGIN NOSUPERUSER NOBYPASSRLS;
     END IF;
 END
 $$;
@@ -85,32 +85,32 @@ ALTER TABLE documents FORCE ROW LEVEL SECURITY;
 
 DROP POLICY IF EXISTS customers_bluehavenoundary ON customers;
 CREATE POLICY customers_bluehavenoundary ON customers
-    USING (current_user = 'proxima_tenant_' || tenant_id)
-    WITH CHECK (current_user = 'proxima_tenant_' || tenant_id);
+    USING (current_user = 'labrole_' || tenant_id)
+    WITH CHECK (current_user = 'labrole_' || tenant_id);
 
 DROP POLICY IF EXISTS invoices_bluehavenoundary ON invoices;
 CREATE POLICY invoices_bluehavenoundary ON invoices
-    USING (current_user = 'proxima_tenant_' || tenant_id)
-    WITH CHECK (current_user = 'proxima_tenant_' || tenant_id);
+    USING (current_user = 'labrole_' || tenant_id)
+    WITH CHECK (current_user = 'labrole_' || tenant_id);
 
 DROP POLICY IF EXISTS employees_bluehavenoundary ON employees;
 CREATE POLICY employees_bluehavenoundary ON employees
-    USING (current_user = 'proxima_tenant_' || tenant_id)
-    WITH CHECK (current_user = 'proxima_tenant_' || tenant_id);
+    USING (current_user = 'labrole_' || tenant_id)
+    WITH CHECK (current_user = 'labrole_' || tenant_id);
 
 DROP POLICY IF EXISTS projects_bluehavenoundary ON projects;
 CREATE POLICY projects_bluehavenoundary ON projects
-    USING (current_user = 'proxima_tenant_' || tenant_id)
-    WITH CHECK (current_user = 'proxima_tenant_' || tenant_id);
+    USING (current_user = 'labrole_' || tenant_id)
+    WITH CHECK (current_user = 'labrole_' || tenant_id);
 
 DROP POLICY IF EXISTS documents_bluehavenoundary ON documents;
 CREATE POLICY documents_bluehavenoundary ON documents
-    USING (current_user = 'proxima_tenant_' || tenant_id)
-    WITH CHECK (current_user = 'proxima_tenant_' || tenant_id);
+    USING (current_user = 'labrole_' || tenant_id)
+    WITH CHECK (current_user = 'labrole_' || tenant_id);
 
-GRANT USAGE ON SCHEMA public TO proxima_tenant_northstar, proxima_tenant_bluehaven, proxima_tenant_cedarstone;
-GRANT SELECT, INSERT, UPDATE, DELETE ON customers, invoices, employees, projects, documents TO proxima_tenant_northstar, proxima_tenant_bluehaven, proxima_tenant_cedarstone;
-GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO proxima_tenant_northstar, proxima_tenant_bluehaven, proxima_tenant_cedarstone;
+GRANT USAGE ON SCHEMA public TO labrole_northstar, labrole_bluehaven, labrole_cedarstone;
+GRANT SELECT, INSERT, UPDATE, DELETE ON customers, invoices, employees, projects, documents TO labrole_northstar, labrole_bluehaven, labrole_cedarstone;
+GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO labrole_northstar, labrole_bluehaven, labrole_cedarstone;
 
 -- Synthetic records for proving tenant separation. These are fictional.
 INSERT INTO customers (tenant_id, name, email, status)
