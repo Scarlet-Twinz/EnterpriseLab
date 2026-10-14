@@ -224,7 +224,7 @@ def main() -> int:
     status, _ = request(
         "POST", "/api/v1/customers", key=KEY_A,
         payload={
-            "tenant_id": identity_b.get("tenant_id", "tenant_b") if isinstance(identity_b, dict) else "tenant_b",
+            "tenant_id": identity_b.get("tenant_id", "bluehaven") if isinstance(identity_b, dict) else "bluehaven",
             "name": "Forged Tenant Assignment",
             "email": f"forged-{time.time_ns()}@example.test",
         },
