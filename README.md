@@ -40,6 +40,24 @@ uvicorn app.main:app --host 127.0.0.1 --port 8088
 
 Health check: `GET http://127.0.0.1:8088/healthz`
 
+## Business API
+
+All data endpoints require `Authorization: Bearer <Enterprise-Lab-API-key>`. Tenant identity and role are derived from the server-side `LAB_API_KEYS` mapping, never from a caller-supplied tenant header.
+
+| Method | Endpoint | Purpose |
+|---|---|---|
+| GET | `/healthz` | Process liveness only |
+| GET | `/metrics` | Prometheus metrics |
+| GET | `/api/v1/me` | Show the authenticated synthetic identity |
+| GET / POST | `/api/v1/customers` | Customer records |
+| GET | `/api/v1/customers/{id}` | Tenant-scoped customer lookup |
+| GET / POST | `/api/v1/employees` | Employee directory |
+| GET / POST | `/api/v1/projects` | Project portfolio and budgets |
+| GET / POST | `/api/v1/invoices` | Invoice records |
+| GET / POST | `/api/v1/documents` | Confidential and restricted documents |
+
+Writes require the `admin` or `operator` role. The schema includes synthetic data for three separate tenant companies.
+
 ## Run checks
 
 ```bash
