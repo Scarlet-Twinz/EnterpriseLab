@@ -16,6 +16,10 @@ import urllib.error
 import urllib.request
 from pathlib import Path
 
+import psycopg
+from app.security import make_proxima_token
+from psycopg.conninfo import make_conninfo
+
 
 def wait_for_enforcement(process: subprocess.Popen, log_path: Path, timeout_seconds: int = 15) -> None:
     """Require the real Engine's startup log to confirm tenant enforcement is enabled."""
