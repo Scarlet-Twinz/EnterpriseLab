@@ -2,8 +2,10 @@
 from __future__ import annotations
 
 import logging
+import threading
 import time
 import uuid
+from collections import Counter, defaultdict
 from typing import Annotated, Any
 
 import psycopg
@@ -15,6 +17,9 @@ from app.security import Principal, authenticate
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
 logger = logging.getLogger("enterprise_lab")
+_METRIC_LOCK = threading.Lock()
+_REQUEST_COUNTS: Counter[tuple[str, str, int]] = Counter()
+_REQUEST_DURATION: dict[tuple[str, str, int], list[float]] = defaultdict(lambda: [0.0, 0.0])
 
 app = FastAPI(
     title="Enterprise Lab Customer API",
@@ -94,11 +99,44 @@ async def request_evidence(request: Request, call_next: Any) -> Response:
         raise
     duration_ms = round((time.perf_counter() - started) * 1000, 2)
     response.headers["x-request-id"] = request_id
+    route = request.scope.get("route")
+    route_template = getattr(route, "path", "unmatched")
+    metric_key = (request.method, route_template, response.status_code)
+    with _METRIC_LOCK:
+        _REQUEST_COUNTS[metric_key] += 1
+        _REQUEST_DURATION[metric_key][0] += duration_ms
+        _REQUEST_DURATION[metric_key][1] += 1
     logger.info(
         "request_complete request_id=%s method=%s path=%s status=%s duration_ms=%s",
         request_id, request.method, request.url.path, response.status_code, duration_ms,
     )
     return response
+
+
+@app.get("/metrics", include_in_schema=False)
+def metrics() -> Response:
+    """Prometheus text exposition; labels intentionally exclude tenant IDs and secrets."""
+    lines = [
+        "# HELP enterprise_lab_process_up Whether the Enterprise Lab API process is responding.",
+        "# TYPE enterprise_lab_process_up gauge",
+        "enterprise_lab_process_up 1",
+        "# HELP enterprise_lab_http_requests_total Total HTTP requests handled by route and status.",
+        "# TYPE enterprise_lab_http_requests_total counter",
+        "# HELP enterprise_lab_http_request_duration_ms_sum Total request duration in milliseconds.",
+        "# TYPE enterprise_lab_http_request_duration_ms_sum counter",
+        "# HELP enterprise_lab_http_request_duration_ms_count Number of request duration observations.",
+        "# TYPE enterprise_lab_http_request_duration_ms_count counter",
+    ]
+    with _METRIC_LOCK:
+        counts = list(_REQUEST_COUNTS.items())
+        durations = {key: value[:] for key, value in _REQUEST_DURATION.items()}
+    for (method, route, status), count in sorted(counts):
+        labels = f'method="{method}",route="{route}",status="{status}"'
+        total_ms, observations = durations[(method, route, status)]
+        lines.append(f"enterprise_lab_http_requests_total{{{labels}}} {count}")
+        lines.append(f"enterprise_lab_http_request_duration_ms_sum{{{labels}}} {total_ms:.2f}")
+        lines.append(f"enterprise_lab_http_request_duration_ms_count{{{labels}}} {int(observations)}")
+    return Response(content="\\n".join(lines) + "\\n", media_type="text/plain; version=0.0.4; charset=utf-8")
 
 
 @app.get("/healthz")
