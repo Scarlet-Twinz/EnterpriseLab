@@ -116,7 +116,18 @@ def main() -> int:
                 env=os.environ.copy(),
                 check=False,
                 timeout=180,
+                capture_output=True,
+                text=True,
             )
+            suite_log = report_dir / (Path(suite).stem + ".log")
+            log_content = result.stdout or ""
+            if result.stderr:
+                log_content += "\\n--- STDERR ---\\n" + result.stderr
+            suite_log.write_text(log_content, encoding="utf-8")
+            if result.stdout:
+                print(result.stdout, end="")
+            if result.stderr:
+                print(result.stderr, file=sys.stderr, end="")
             if result.returncode != 0:
                 print(f"FAIL | {suite} | exit code {result.returncode}", file=sys.stderr)
                 print_log(engine_log)
