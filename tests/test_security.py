@@ -10,7 +10,7 @@ from app.security import make_proxima_token
 
 
 def test_signed_token_uses_expected_wire_format(monkeypatch):
-    monkeypatch.setenv("PROXIMA_SIGNING_KEY", "test-secret-that-is-long-enough-123456")
+    monkeypatch.setenv("PROXIMA_TENANT_SIGNING_KEY", "test-secret-that-is-long-enough-123456")
     token = make_proxima_token("tenant_a", now=1_700_000_000, ttl_seconds=60)
     payload, signature = token.rsplit(".", 1)
     expected = hmac.new(
@@ -21,13 +21,13 @@ def test_signed_token_uses_expected_wire_format(monkeypatch):
 
 
 def test_invalid_tenant_id_is_rejected(monkeypatch):
-    monkeypatch.setenv("PROXIMA_SIGNING_KEY", "test-secret-that-is-long-enough-123456")
+    monkeypatch.setenv("PROXIMA_TENANT_SIGNING_KEY", "test-secret-that-is-long-enough-123456")
     with pytest.raises(ValueError):
         make_proxima_token("tenant-a;drop-table", now=100, ttl_seconds=60)
 
 
 def test_short_signing_key_is_rejected(monkeypatch):
-    monkeypatch.setenv("PROXIMA_SIGNING_KEY", "too-short")
+    monkeypatch.setenv("PROXIMA_TENANT_SIGNING_KEY", "too-short")
     with pytest.raises(RuntimeError, match="at least 32 bytes"):
         make_proxima_token("tenant_a", now=100, ttl_seconds=60)
 
