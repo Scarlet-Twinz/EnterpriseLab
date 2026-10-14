@@ -6,9 +6,9 @@ import json
 import os
 import sys
 import time
-from datetime import datetime, timezone
-from pathlib import Path
 from concurrent.futures import ThreadPoolExecutor, as_completed
+from datetime import UTC, datetime
+from pathlib import Path
 from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
 
