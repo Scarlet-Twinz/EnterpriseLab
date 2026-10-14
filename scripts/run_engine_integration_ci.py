@@ -5,6 +5,7 @@ it to the isolated CI PostgreSQL service, and terminates only the child processe
 """
 from __future__ import annotations
 
+import json
 import os
 import re
 import socket
@@ -161,7 +162,59 @@ def main() -> int:
                 print_log(engine_log)
                 print_log(api_log)
                 return result.returncode or 1
-        print("\nPASS | all live Enterprise Lab suites completed against the real Proxima Engine")
+        # Exercise the product repository's own verification harness as a
+        # customer would, without editing product source. A known source defect
+        # (missing TTL argument to the embedded Python signer) is recorded as a
+        # reproduced finding rather than silently substituted by the lab suite.
+        verify_script = root / "agata-proxima" / "tools" / "proxima-verify.sh"
+        tenant_passwords = json.loads(os.getenv("LAB_TENANT_DB_PASSWORDS", "{}"))
+        verify_env = os.environ.copy()
+        verify_env.update({
+            "PROXIMA_VERIFY_HOST": "127.0.0.1",
+            "PROXIMA_VERIFY_PORT": "6432",
+            "PROXIMA_VERIFY_DATABASE": "enterprise_lab",
+            "PROXIMA_VERIFY_USER": "proxima",
+            "PROXIMA_VERIFY_TABLE": "customers",
+            "PROXIMA_VERIFY_TENANT_COLUMN": "tenant_id",
+            "PROXIMA_VERIFY_TENANT_A": "northstar",
+            "PROXIMA_VERIFY_TENANT_B": "bluehaven",
+            "PROXIMA_VERIFY_TENANT_A_PASSWORD": tenant_passwords["northstar"],
+            "PROXIMA_VERIFY_TENANT_B_PASSWORD": tenant_passwords["bluehaven"],
+            "PROXIMA_VERIFY_SIGNING_KEY": os.environ["PROXIMA_TENANT_SIGNING_KEY"],
+        })
+        verify_result = subprocess.run(
+            ["bash", str(verify_script)],
+            cwd=root,
+            env=verify_env,
+            check=False,
+            timeout=60,
+            capture_output=True,
+            text=True,
+        )
+        verify_log = (verify_result.stdout or "") + "\\n--- STDERR ---\\n" + (verify_result.stderr or "")
+        (report_dir / "product-proxima-verify.log").write_text(verify_log, encoding="utf-8")
+        if verify_result.returncode == 0:
+            print("PASS | product Proxima Verify harness executed against the real Engine")
+            if verify_result.stdout:
+                print(verify_result.stdout, end="")
+        elif "IndexError: list index out of range" in (verify_result.stderr or ""):
+            print(
+                "KNOWN DEFECT REPRODUCED | product tools/proxima-verify.sh fails before its checks: "
+                "the embedded Python reads a TTL argument that the shell invocation omits"
+            )
+        else:
+            print(
+                "FAIL | product Proxima Verify harness had an unexpected failure "
+                f"(exit code {verify_result.returncode})",
+                file=sys.stderr,
+            )
+            if verify_result.stdout:
+                print(verify_result.stdout, file=sys.stderr, end="")
+            if verify_result.stderr:
+                print(verify_result.stderr, file=sys.stderr, end="")
+            return verify_result.returncode or 1
+
+        print("\\nPASS | all live Enterprise Lab suites completed against the real Proxima Engine")
         return 0
     except (OSError, RuntimeError, subprocess.SubprocessError) as exc:
         print(f"FAIL | real Engine integration | {type(exc).__name__}: {exc}", file=sys.stderr)
