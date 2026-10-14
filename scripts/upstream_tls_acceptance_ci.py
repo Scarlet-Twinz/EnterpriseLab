@@ -118,7 +118,8 @@ def main() -> int:
 
             db_env = os.environ.copy()
             db_env.update({"PGHOST": "127.0.0.1", "PGPORT": "5544", "PGUSER": "lab_admin",
-                           "PGPASSWORD": "ci-admin-password", "PGDATABASE": "enterprise_lab"})
+                           "PGPASSWORD": "ci-admin-password", "PGDATABASE": "enterprise_lab",
+                           "POSTGRES_USER": "lab_admin", "POSTGRES_DB": "enterprise_lab"})
             run(["psql", "-v", "ON_ERROR_STOP=1", "-f", str(root / "db/schema.sql")], env=db_env)
             run(["sh", str(root / "db/02-create-tenant-roles.sh")], env=db_env)
             # Explicit PG* environment ensures setup targets the disposable TLS server.
