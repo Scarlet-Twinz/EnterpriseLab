@@ -2,12 +2,12 @@
 
 This file records integration risks discovered while aligning Enterprise Lab to the current Agata Proxima `main` branch. These are findings from source/document inspection, not claims that a live production deployment was attacked. **No Agata Proxima files were changed.**
 
-## Finding 1 — Proxima Verify token helper appears to omit its TTL argument
+## Finding 1 — Proxima Verify token helper omits its TTL argument
 
 **Severity: High for release verification evidence**  
-**Status: Source-inspection finding; runtime confirmation pending**
+**Status: Source-level defect confirmed; runtime execution still pending**
 
-In [Agata Proxima's Proxima Verify harness](https://github.com/Scarlet-Twinz/Agata-proxima/blob/main/tools/proxima-verify.sh), the shell function defines a local TTL, but invokes Python with only the signing key and tenant ID. The embedded Python reads `sys.argv[3]` to calculate expiry. That argument is not supplied by the invocation shown in the current file, so the harness appears to raise an index error before it can produce a signed token.
+In [Agata Proxima's Proxima Verify harness](https://github.com/Scarlet-Twinz/Agata-proxima/blob/main/tools/proxima-verify.sh), the shell function defines a local TTL, but invokes Python with only the signing key and tenant ID. The embedded Python reads `sys.argv[3]` to calculate expiry. That argument is not supplied by the invocation shown in the current file, so the harness will raise an index error when `make_token` evaluates `sys.argv[3]`. This is confirmed by the source; the harness has not been executed against a live deployment in this lab.
 
 Enterprise Lab has an independent protocol suite in `scripts/proxima_protocol_suite.py`. That suite is not a substitute for fixing and successfully running the product's own verification harness; this finding should be resolved in a separate Agata Proxima change and re-tested there.
 
@@ -18,7 +18,7 @@ Enterprise Lab has an independent protocol suite in `scripts/proxima_protocol_su
 
 The current Agata Proxima README describes TLS termination at Proxima and optional upstream CA/hostname verification. The current `docs/verification.md` also contains wording that describes end-to-end TLS through the Engine and says tenant enforcement cannot inspect that encrypted session. These statements describe different deployment paths and need to be reconciled with the actual configured mode.
 
-Enterprise Lab's local launcher intentionally uses loopback and disables upstream TLS for its isolated development run. That is not evidence of production TLS acceptance. A separate test must configure a client certificate/key, require client TLS, and—when enabled—verify upstream CA and hostname validation.
+Enterprise Lab's local launcher intentionally uses loopback and disables upstream TLS for its isolated development run. That is not evidence of production TLS acceptance. Source inspection of `crates/proxima-engine/src/tls.rs` also shows that the client-side TLS acceptor uses `with_no_client_auth()`: TLS protects the client connection, but this code does not authenticate client certificates (mTLS). The `PROXIMA_TLS_CERT_FILE` and `PROXIMA_TLS_KEY_FILE` values are the Engine's server certificate and private key, not a client certificate/key. A separate runtime test must verify plaintext rejection when client TLS is required, successful TLS negotiation with the configured server certificate, and upstream CA plus hostname validation when `PROXIMA_UPSTREAM_TLS_MODE=verify-full`. Do not describe this as mTLS.
 
 ## Finding 3 — Tenant enforcement depends on Engine signing-key configuration
 
