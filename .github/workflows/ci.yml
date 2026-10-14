@@ -153,6 +153,13 @@ jobs:
         run: cargo build -p proxima-engine --locked
       - name: Run live acceptance against the real Proxima Engine
         run: python scripts/run_engine_integration_ci.py
+      - name: Verify upstream PostgreSQL TLS CA and hostname checks
+        env:
+          PROXIMA_TENANT_SIGNING_KEY: ci-enterprise-lab-signing-key-that-is-over-32-bytes
+          LAB_TENANT_A_DB_PASSWORD: ci-tenant-a-password
+          LAB_TENANT_B_DB_PASSWORD: ci-tenant-b-password
+          LAB_TENANT_C_DB_PASSWORD: ci-tenant-c-password
+        run: python scripts/upstream_tls_acceptance_ci.py
       - name: Upload live acceptance evidence
         if: always()
         uses: actions/upload-artifact@v4
