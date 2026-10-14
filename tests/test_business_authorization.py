@@ -66,3 +66,29 @@ def test_admin_can_create_restricted_document(monkeypatch):
     )
     assert response.status_code == 201
     assert response.json()["classification"] == "restricted"
+
+
+
+def test_customer_body_cannot_override_tenant_identity(monkeypatch):
+    _configure(monkeypatch, "tenant-a-key", "northstar", "admin")
+    called = False
+
+    def fake_run(*args, **kwargs):
+        nonlocal called
+        called = True
+        return {}
+
+    monkeypatch.setattr(main_module, "_run", fake_run)
+    response = TestClient(main_module.app).post(
+        "/api/v1/customers",
+        headers={"Authorization": "Bearer tenant-a-key"},
+        json={
+            "tenant_id": "bluehaven",
+            "name": "Forged tenant customer",
+            "email": "forged@example.test",
+            "status": "active",
+        },
+    )
+
+    assert response.status_code == 422
+    assert called is False
