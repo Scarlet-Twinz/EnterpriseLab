@@ -110,6 +110,7 @@ def main() -> int:
                  "-subj", "/CN=Untrusted Lab CA"])
 
             # Mount a disposable certificate directory with PostgreSQL-compatible key ownership/mode.
+            tlsdir.chmod(0o755)  # PostgreSQL must traverse the bind-mounted temporary directory.
             postgres_uid = run(["docker", "run", "--rm", "postgres:16-alpine", "id", "-u", "postgres"]).stdout.strip()
             run(["sudo", "chown", f"{postgres_uid}:{postgres_uid}", str(server_key)])
             run(["sudo", "chmod", "600", str(server_key)])
