@@ -20,7 +20,7 @@ Read the [simulated US customer profile](docs/COMPANY_PROFILE.md) for the busine
 
 Set `PROXIMA_DATABASE_URL` to the **Proxima Engine endpoint**, not the upstream PostgreSQL endpoint. Each business request opens a database connection with a signed `proxima_tenant_token` startup option. The Engine must verify the token and map the tenant to the intended PostgreSQL role.
 
-Tenant IDs used in the lab are `northstar`, `bluehaven`, and `cedarstone`; the corresponding PostgreSQL roles must be configured in the Engine/database. The Engine's default role prefix is `proxima_tenant_`, so `northstar` maps to PostgreSQL role `proxima_tenant_northstar`. The RLS policies explicitly bind each `tenant_id` to that role name. If the role prefix changes, update and re-test the database policies deliberately.
+Tenant IDs used in the lab are `northstar`, `bluehaven`, and `cedarstone`; the corresponding PostgreSQL roles must be configured in the Engine/database. The Engine's default role prefix is `proxima_tenant_`, so `northstar` maps to PostgreSQL role `proxima_tenant_northstar`. The prefix is configurable, but the current Engine supports one global prefix plus the verified tenant ID—not arbitrary per-tenant role mapping. See [the integration contract](docs/INTEGRATION_CONTRACT.md) for examples and the exact limitation. The RLS policies explicitly bind each `tenant_id` to the expected role name.
 
 Administrative schema setup is separate and uses `LAB_ADMIN_DATABASE_URL` against the upstream test database. The application never falls back to that URL.
 
