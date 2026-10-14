@@ -20,7 +20,7 @@ Read the [simulated US customer profile](docs/COMPANY_PROFILE.md) for the busine
 
 Set `PROXIMA_DATABASE_URL` to the **Proxima Engine endpoint**, not the upstream PostgreSQL endpoint. Each business request opens a database connection with a signed `proxima_tenant_token` startup option. The Engine must verify the token and map the tenant to the intended PostgreSQL role.
 
-Tenant IDs used in the lab are `tenant_a`, `tenant_b`, and `tenant_c`; the corresponding PostgreSQL roles must be configured in the Engine/database. The Engine's default role prefix is `proxima_tenant_`, so `tenant_a` maps to PostgreSQL role `proxima_tenant_tenant_a`. The RLS policies explicitly bind each `tenant_id` to that role name. If the role prefix changes, update and re-test the database policies deliberately.
+Tenant IDs used in the lab are `northstar`, `bluehaven`, and `cedarstone`; the corresponding PostgreSQL roles must be configured in the Engine/database. The Engine's default role prefix is `proxima_tenant_`, so `northstar` maps to PostgreSQL role `proxima_tenant_northstar`. The RLS policies explicitly bind each `tenant_id` to that role name. If the role prefix changes, update and re-test the database policies deliberately.
 
 Administrative schema setup is separate and uses `LAB_ADMIN_DATABASE_URL` against the upstream test database. The application never falls back to that URL.
 
@@ -75,7 +75,7 @@ The attack suite requires the API to be running and the sample API keys from you
 
 ## Environment variables
 
-- `LAB_API_KEYS`: JSON object mapping API keys to trusted server-side identities, e.g. `{"replace-with-key-a":{"tenant_id":"tenant_a","role":"admin"}}`.
+- `LAB_API_KEYS`: JSON object mapping API keys to trusted server-side identities, e.g. `{"replace-with-key-a":{"tenant_id":"northstar","role":"admin"}}`.
 - `PROXIMA_TENANT_SIGNING_KEY`: shared signing secret for the real Engine and lab backend; keep it in a secret store or local environment, never commit it.
 - `LAB_TENANT_DB_PASSWORDS`: JSON object mapping tenant IDs to the matching PostgreSQL tenant-role passwords.
 - `PROXIMA_DATABASE_URL`: application DSN pointing to Proxima Engine.
