@@ -15,6 +15,30 @@ import urllib.request
 from pathlib import Path
 
 
+def wait_for_enforcement(process: subprocess.Popen, log_path: Path, timeout_seconds: int = 15) -> None:
+    """Require the real Engine's startup log to confirm tenant enforcement is enabled."""
+    deadline = time.monotonic() + timeout_seconds
+    while time.monotonic() < deadline:
+        if process.poll() is not None:
+            raise RuntimeError(f"Proxima Engine exited before confirming enforcement. See {log_path}")
+        try:
+            log_text = log_path.read_text(encoding="utf-8", errors="replace")
+        except OSError:
+            log_text = ""
+        normalized = log_text.replace(" ", "")
+        if "tenant_enforcement=false" in normalized:
+            raise RuntimeError(
+                "Proxima Engine started with tenant enforcement disabled; refusing acceptance run."
+            )
+        if "tenant_enforcement=true" in normalized:
+            return
+        time.sleep(0.25)
+    raise RuntimeError(
+        "Proxima Engine did not explicitly report tenant_enforcement=true in its startup log; "
+        f"refusing to infer enforcement from an open port. See {log_path}"
+    )
+
+
 def wait_for_port(process: subprocess.Popen, log_path: Path, timeout_seconds: int = 120) -> None:
     deadline = time.monotonic() + timeout_seconds
     while time.monotonic() < deadline:
@@ -22,6 +46,7 @@ def wait_for_port(process: subprocess.Popen, log_path: Path, timeout_seconds: in
             raise RuntimeError(f"Proxima Engine exited early. See {log_path}")
         try:
             with socket.create_connection(("127.0.0.1", 6432), timeout=1):
+                wait_for_enforcement(process, log_path)
                 return
         except OSError:
             time.sleep(1)
