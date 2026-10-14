@@ -15,7 +15,10 @@ import time
 from dataclasses import dataclass
 
 import psycopg
+from dotenv import load_dotenv
 from psycopg.conninfo import make_conninfo
+
+load_dotenv()
 
 
 @dataclass
