@@ -46,25 +46,27 @@ jobs:
           PGUSER: lab_admin
           PGPASSWORD: ci-admin-password
           PGDATABASE: enterprise_lab
-          PROXIMA_GATEWAY_PASSWORD: ci-gateway-password
+          LAB_TENANT_A_DB_PASSWORD: ci-tenant-a-password
+          LAB_TENANT_B_DB_PASSWORD: ci-tenant-b-password
+          LAB_TENANT_C_DB_PASSWORD: ci-tenant-c-password
           POSTGRES_USER: lab_admin
           POSTGRES_DB: enterprise_lab
         run: |
           psql -v ON_ERROR_STOP=1 -f db/schema.sql
-          sh db/02-create-engine-role.sh
+          sh db/02-create-tenant-roles.sh
       - name: Verify PostgreSQL tenant isolation
         env:
           PGHOST: 127.0.0.1
           PGPORT: "5432"
-          PGUSER: proxima_gateway
-          PGPASSWORD: ci-gateway-password
+          PGUSER: proxima_tenant_tenant_a
+          PGPASSWORD: ci-tenant-a-password
           PGDATABASE: enterprise_lab
         run: |
-          own_rows="$(psql -v ON_ERROR_STOP=1 -Atqc "SET ROLE tenant_a; SELECT count(*) FROM customers WHERE tenant_id = 'tenant_a'")"
-          cross_rows="$(psql -v ON_ERROR_STOP=1 -Atqc "SET ROLE tenant_a; SELECT count(*) FROM customers WHERE tenant_id = 'tenant_b'")"
+          own_rows="$(psql -v ON_ERROR_STOP=1 -Atqc "SELECT count(*) FROM customers WHERE tenant_id = 'tenant_a'")"
+          cross_rows="$(psql -v ON_ERROR_STOP=1 -Atqc "SELECT count(*) FROM customers WHERE tenant_id = 'tenant_b'")"
           test "$own_rows" -ge 1
           test "$cross_rows" -eq 0
-          if psql -v ON_ERROR_STOP=1 -qc "SET ROLE tenant_a; INSERT INTO customers (tenant_id, name, email, status) VALUES ('tenant_b', 'CI CROSS-TENANT PROBE', 'ci-cross-tenant@example.test', 'active')"; then
+          if psql -v ON_ERROR_STOP=1 -qc "INSERT INTO customers (tenant_id, name, email, status) VALUES ('tenant_b', 'CI CROSS-TENANT PROBE', 'ci-cross-tenant@example.test', 'active')"; then
             echo "FAIL: tenant A inserted a tenant B row"
             exit 1
           else
