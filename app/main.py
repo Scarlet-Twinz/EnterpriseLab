@@ -38,7 +38,7 @@ Email = Annotated[
         strip_whitespace=True,
         min_length=3,
         max_length=254,
-        pattern=r"^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$",
+        pattern=r"^[^@\s]+@[^@\s]+\.[^@\s]+$",
     ),
 ]
 
