@@ -21,16 +21,17 @@ def run(command: list[str], *, check: bool = True, timeout: int = 30, env: dict[
     return result
 
 
-def wait_port(host: str, port: int, timeout: float = 20) -> None:
+def wait_port(host: str, port: int, timeout: float = 20, env: dict[str, str] | None = None) -> None:
     deadline = time.monotonic() + timeout
     while time.monotonic() < deadline:
-        try:
-            with socket.create_connection((host, port), timeout=0.5):
-                return
-        except OSError:
-            time.sleep(0.25)
-    raise RuntimeError(f"{host}:{port} did not become ready")
-
+        probe = subprocess.run(
+            ["pg_isready", "-h", host, "-p", str(port), "-U", "lab_admin", "-d", "enterprise_lab"],
+            capture_output=True, text=True, env=env, check=False,
+        )
+        if probe.returncode == 0:
+            return
+        time.sleep(0.5)
+    raise RuntimeError(f"PostgreSQL at {host}:{port} did not become ready")
 
 def wait_engine(process: subprocess.Popen, log: Path, port: int) -> None:
     deadline = time.monotonic() + 15
@@ -118,12 +119,11 @@ def main() -> int:
                  "-c", "ssl_cert_file=/certs/server.crt",
                  "-c", "ssl_key_file=/certs/server.key"])
             run(["docker", "start", db_container])
-            wait_port("127.0.0.1", 5544, 40)
-
             db_env = os.environ.copy()
             db_env.update({"PGHOST": "127.0.0.1", "PGPORT": "5544", "PGUSER": "lab_admin",
                            "PGPASSWORD": "ci-admin-password", "PGDATABASE": "enterprise_lab",
                            "POSTGRES_USER": "lab_admin", "POSTGRES_DB": "enterprise_lab"})
+            wait_port("127.0.0.1", 5544, 40, env=db_env)
             run(["psql", "-v", "ON_ERROR_STOP=1", "-f", str(root / "db/schema.sql")], env=db_env)
             run(["sh", str(root / "db/02-create-tenant-roles.sh")], env=db_env)
             # Explicit PG* environment ensures setup targets the disposable TLS server.
