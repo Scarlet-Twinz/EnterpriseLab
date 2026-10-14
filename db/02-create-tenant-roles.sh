@@ -13,8 +13,8 @@ psql --username "$POSTGRES_USER" --dbname "$POSTGRES_DB" \
   --set=cedarstone_password="$LAB_TENANT_C_DB_PASSWORD" <<'SQL'
 ALTER ROLE proxima_tenant_northstar LOGIN PASSWORD :'northstar_password'
     NOSUPERUSER NOCREATEDB NOCREATEROLE NOBYPASSRLS;
-ALTER ROLE proxima_bluehavenluehaven LOGIN PASSWORD :'bluehaven_password'
+ALTER ROLE proxima_tenant_bluehaven LOGIN PASSWORD :'bluehaven_password'
     NOSUPERUSER NOCREATEDB NOCREATEROLE NOBYPASSRLS;
-ALTER ROLE proxima_cedarstoneedarstone LOGIN PASSWORD :'cedarstone_password'
+ALTER ROLE proxima_tenant_cedarstone LOGIN PASSWORD :'cedarstone_password'
     NOSUPERUSER NOCREATEDB NOCREATEROLE NOBYPASSRLS;
 SQL
