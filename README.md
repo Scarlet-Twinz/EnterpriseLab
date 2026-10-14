@@ -6,7 +6,7 @@ The company simulator owns realistic business workflows and synthetic data. Its 
 
 ## First implementation
 
-- FastAPI business API for customers, employees, invoices, and confidential documents.
+- FastAPI business API for customers, employees, projects, invoices, and confidential documents.
 - PostgreSQL schema with tenant-specific roles and row-level security (RLS).
 - Server-side API-key identity mapping. The caller cannot choose the tenant context by sending a tenant header or body field.
 - HMAC-signed Proxima tenant-context tokens passed through PostgreSQL startup options.
@@ -43,7 +43,10 @@ Health check: `GET http://127.0.0.1:8088/healthz`
 ```bash
 pytest -q
 python scripts/attack_suite.py
+python scripts/proxima_protocol_suite.py
 ```
+
+The protocol suite connects directly to the configured Proxima Engine listener and tests signed tenant context, cross-tenant reads, prepared statements, cross-tenant writes (always rolled back), expired tokens, and tampered signatures. It requires an isolated Engine/database environment and the correct signing key. Do not point it at production.
 
 The attack suite requires the API to be running and the sample API keys from your local `.env` (or equivalent environment variables) to be configured. It must only be pointed at the isolated Enterprise Lab test deployment.
 
