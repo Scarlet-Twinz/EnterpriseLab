@@ -1,0 +1,24 @@
+services:
+  enterprise-db:
+    image: postgres:16-alpine
+    container_name: enterprise-lab-db
+    environment:
+      POSTGRES_DB: enterprise_lab
+      POSTGRES_USER: lab_admin
+      POSTGRES_PASSWORD: ${LAB_POSTGRES_ADMIN_PASSWORD:?Set LAB_POSTGRES_ADMIN_PASSWORD in .env}
+      PROXIMA_GATEWAY_PASSWORD: ${PROXIMA_GATEWAY_PASSWORD:?Set PROXIMA_GATEWAY_PASSWORD in .env}
+    ports:
+      - "127.0.0.1:55432:5432"
+    volumes:
+      - enterprise-lab-postgres:/var/lib/postgresql/data
+      - ./db/schema.sql:/docker-entrypoint-initdb.d/001-schema.sql:ro
+      - ./db/02-create-engine-role.sh:/docker-entrypoint-initdb.d/002-create-engine-role.sh:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U lab_admin -d enterprise_lab"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+    restart: unless-stopped
+
+volumes:
+  enterprise-lab-postgres:
