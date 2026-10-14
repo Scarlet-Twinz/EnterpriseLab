@@ -1,0 +1,121 @@
+#!/usr/bin/env python3
+"""Controlled attack suite for an isolated Enterprise Lab deployment."""
+from __future__ import annotations
+
+import json
+import os
+import sys
+import time
+from concurrent.futures import ThreadPoolExecutor, as_completed
+from urllib.error import HTTPError, URLError
+from urllib.request import Request, urlopen
+
+BASE_URL = os.getenv("LAB_BASE_URL", "http://127.0.0.1:8088").rstrip("/")
+KEY_A = os.getenv("LAB_API_KEY_A", "")
+KEY_B = os.getenv("LAB_API_KEY_B", "")
+
+
+def request(method: str, path: str, *, key: str | None = None, payload: object | None = None):
+    body = None if payload is None else json.dumps(payload).encode()
+    headers = {"Content-Type": "application/json", "X-Request-ID": f"enterprise-lab-{time.time_ns()}"}
+    if key:
+        headers["Authorization"] = f"Bearer {key}"
+    req = Request(f"{BASE_URL}{path}", data=body, headers=headers, method=method)
+    try:
+        with urlopen(req, timeout=8) as response:
+            raw = response.read()
+            return response.status, json.loads(raw) if raw else None
+    except HTTPError as exc:
+        raw = exc.read()
+        try:
+            data = json.loads(raw) if raw else None
+        except json.JSONDecodeError:
+            data = {"raw": raw[:300].decode(errors="replace")}
+        return exc.code, data
+    except URLError as exc:
+        raise RuntimeError(f"Could not reach Enterprise Lab at {BASE_URL}: {exc.reason}") from exc
+
+
+def check(label: str, condition: bool, detail: str) -> bool:
+    print(f'{"PASS" if condition else "FAIL"} | {label} | {detail}')
+    return condition
+
+
+def main() -> int:
+    if not KEY_A or not KEY_B:
+        print("Set LAB_API_KEY_A and LAB_API_KEY_B to dedicated test API keys.", file=sys.stderr)
+        return 2
+
+    failures = 0
+    status, _ = request("GET", "/healthz")
+    failures += not check("liveness", status == 200, f"HTTP {status}")
+
+    status, _ = request("GET", "/api/v1/me")
+    failures += not check("missing authentication rejected", status == 401, f"HTTP {status}")
+
+    status, _ = request("GET", "/api/v1/me", key="definitely-invalid-enterprise-lab-key")
+    failures += not check("unknown API key rejected", status == 401, f"HTTP {status}")
+
+    status, identity_a = request("GET", "/api/v1/me", key=KEY_A)
+    status_b, identity_b = request("GET", "/api/v1/me", key=KEY_B)
+    distinct = (
+        status == 200 and status_b == 200 and identity_a.get("tenant_id") != identity_b.get("tenant_id")
+        if isinstance(identity_a, dict) and isinstance(identity_b, dict)
+        else False
+    )
+    failures += not check("test identities are distinct", distinct, "server-side key mapping checked")
+
+    # Create a unique tenant-B customer, then attempt to read it using tenant A's identity.
+    marker = f"ELAB-CROSS-TENANT-{time.time_ns()}"
+    status, created = request(
+        "POST", "/api/v1/customers", key=KEY_B,
+        payload={"name": marker, "email": f"{marker.lower()}@example.test", "status": "active"},
+    )
+    created_ok = status == 201 and isinstance(created, dict) and "id" in created
+    failures += not check("tenant B can create a synthetic customer", created_ok, f"HTTP {status}")
+    if created_ok:
+        record_id = created["id"]
+        own_status, _ = request("GET", f"/api/v1/customers/{record_id}", key=KEY_B)
+        cross_status, _ = request("GET", f"/api/v1/customers/{record_id}", key=KEY_A)
+        failures += not check("tenant B can read its own customer", own_status == 200, f"HTTP {own_status}")
+        failures += not check(
+            "tenant A cannot read tenant B customer",
+            cross_status in (403, 404),
+            f"HTTP {cross_status}",
+        )
+
+    # Attempt to smuggle a tenant ID into a strict request body.
+    status, _ = request(
+        "POST", "/api/v1/customers", key=KEY_A,
+        payload={
+            "tenant_id": identity_b.get("tenant_id", "tenant_b") if isinstance(identity_b, dict) else "tenant_b",
+            "name": "Forged Tenant Assignment",
+            "email": f"forged-{time.time_ns()}@example.test",
+        },
+    )
+    failures += not check("client-supplied tenant assignment rejected", status == 422, f"HTTP {status}")
+
+    # Controlled concurrency against a read-only endpoint; this is not an unbounded DoS test.
+    def one_read(_index: int):
+        return request("GET", "/api/v1/customers", key=KEY_A)[0]
+
+    started = time.perf_counter()
+    statuses: list[int] = []
+    with ThreadPoolExecutor(max_workers=8) as pool:
+        futures = [pool.submit(one_read, index) for index in range(32)]
+        for future in as_completed(futures):
+            statuses.append(future.result())
+    elapsed_ms = round((time.perf_counter() - started) * 1000, 2)
+    successful = sum(code == 200 for code in statuses)
+    failures += not check(
+        "bounded concurrent read workload",
+        successful == len(statuses),
+        f"{successful}/{len(statuses)} succeeded; {elapsed_ms} ms total",
+    )
+
+    print(f"\nEnterprise Lab attack suite: {'PASS' if failures == 0 else 'FAIL'} ({failures} failed checks)")
+    return 0 if failures == 0 else 1
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
