@@ -74,7 +74,7 @@ def write_report(started_at: str, failures: int) -> None:
     report_path = report_dir / filename
     report_path.write_bytes(encoded)
     digest = hashlib.sha256(encoded).hexdigest()
-    (report_dir / f"{filename}.sha256").write_text(f"{digest}  {filename}\\n", encoding="utf-8")
+    (report_dir / f"{filename}.sha256").write_text(f"{digest}  {filename}\n", encoding="utf-8")
     print(f"Evidence report: {report_path}")
     print(f"SHA-256: {digest}")
 
