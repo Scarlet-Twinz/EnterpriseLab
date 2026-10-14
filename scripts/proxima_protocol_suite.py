@@ -157,7 +157,7 @@ def main() -> int:
                 current_role = cur.fetchone()[0]
                 results.check(
                     f"{tenant} selects its expected PostgreSQL role",
-                    current_role == f"proxima_tenant_{tenant}",
+                    current_role == f"labrole_{tenant}",
                     f"current_user={current_role}",
                 )
                 cur.execute("SELECT count(*) FROM customers WHERE tenant_id = %s", (tenant,))
