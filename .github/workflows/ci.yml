@@ -76,3 +76,73 @@ jobs:
         run: ruff check app tests scripts
       - name: Unit tests
         run: pytest -q
+
+  real-engine-integration:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      PROXIMA_LISTEN_ADDR: 127.0.0.1:6432
+      PROXIMA_UPSTREAM_ADDR: 127.0.0.1:5432
+      PROXIMA_TENANT_ROLE_PREFIX: proxima_tenant_
+      PROXIMA_UPSTREAM_TLS_MODE: disable
+      PROXIMA_TENANT_SIGNING_KEY: ci-enterprise-lab-signing-key-that-is-over-32-bytes
+      PROXIMA_DATABASE_URL: postgresql://proxima@127.0.0.1:6432/enterprise_lab
+      LAB_TENANT_DB_PASSWORDS: '{"tenant_a":"ci-tenant-a-password","tenant_b":"ci-tenant-b-password","tenant_c":"ci-tenant-c-password"}'
+      LAB_API_KEYS: '{"ci-key-a":{"tenant_id":"tenant_a","role":"admin"},"ci-key-b":{"tenant_id":"tenant_b","role":"operator"},"ci-key-c":{"tenant_id":"tenant_c","role":"viewer"}}'
+      LAB_BASE_URL: http://127.0.0.1:8088
+      LAB_API_KEY_A: ci-key-a
+      LAB_API_KEY_B: ci-key-b
+      LAB_API_KEY_C: ci-key-c
+      RUST_LOG: info
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_DB: enterprise_lab
+          POSTGRES_USER: lab_admin
+          POSTGRES_PASSWORD: ci-admin-password
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U lab_admin -d enterprise_lab"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/checkout@v4
+        with:
+          repository: Scarlet-Twinz/Agata-proxima
+          ref: main
+          path: agata-proxima
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Install PostgreSQL client
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y postgresql-client
+      - name: Install Enterprise Lab
+        run: python -m pip install -e ".[dev]"
+      - name: Initialize isolated PostgreSQL tenant database
+        env:
+          PGHOST: 127.0.0.1
+          PGPORT: "5432"
+          PGUSER: lab_admin
+          PGPASSWORD: ci-admin-password
+          PGDATABASE: enterprise_lab
+          LAB_TENANT_A_DB_PASSWORD: ci-tenant-a-password
+          LAB_TENANT_B_DB_PASSWORD: ci-tenant-b-password
+          LAB_TENANT_C_DB_PASSWORD: ci-tenant-c-password
+          POSTGRES_USER: lab_admin
+          POSTGRES_DB: enterprise_lab
+        run: |
+          psql -v ON_ERROR_STOP=1 -f db/schema.sql
+          sh db/02-create-tenant-roles.sh
+      - name: Build the actual Proxima Engine from its separate repository
+        working-directory: agata-proxima
+        run: cargo build -p proxima-engine --locked
+      - name: Run live acceptance against the real Proxima Engine
+        run: python scripts/run_engine_integration_ci.py
