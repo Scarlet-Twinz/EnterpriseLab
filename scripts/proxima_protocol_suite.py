@@ -84,8 +84,10 @@ def main() -> int:
                                    %s, 'active')""",
                         (f"rollback-probe-{time.time_ns()}@example.test",),
                     )
-                except psycopg.Error:
-                    write_blocked = True
+                except psycopg.Error as exc:
+                    # SQLSTATE 42501 is PostgreSQL's insufficient_privilege response,
+                    # which is the expected RLS WITH CHECK rejection.
+                    write_blocked = exc.sqlstate == "42501"
                 finally:
                     cur.execute("ROLLBACK TO SAVEPOINT cross_tenant_write_probe")
                     cur.execute("RELEASE SAVEPOINT cross_tenant_write_probe")
