@@ -20,11 +20,11 @@ $keyA = "elab_" + (New-Secret 24)
 $keyB = "elab_" + (New-Secret 24)
 $keyC = "elab_" + (New-Secret 24)
 
-$apiKeys = @{
-    $keyA = @{ tenant_id = "tenant_a"; role = "admin" }
-    $keyB = @{ tenant_id = "tenant_b"; role = "admin" }
-    $keyC = @{ tenant_id = "tenant_c"; role = "viewer" }
-} | ConvertTo-Json -Compress -Depth 4
+$apiKeysObject = [ordered]@{}
+$apiKeysObject[$keyA] = @{ tenant_id = "tenant_a"; role = "admin" }
+$apiKeysObject[$keyB] = @{ tenant_id = "tenant_b"; role = "admin" }
+$apiKeysObject[$keyC] = @{ tenant_id = "tenant_c"; role = "viewer" }
+$apiKeys = $apiKeysObject | ConvertTo-Json -Compress -Depth 4
 
 $content = @"
 LAB_API_KEYS=$apiKeys
