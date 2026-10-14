@@ -61,9 +61,13 @@ def stop_process(process: subprocess.Popen | None) -> None:
 
 def main() -> int:
     root = Path(__file__).resolve().parents[1]
-    engine_binary = Path(os.getenv("AGATA_ENGINE_BINARY", "")).resolve()
+    default_binary = root / "agata-proxima" / "target" / "debug" / "proxima-engine"
+    engine_binary = Path(os.getenv("AGATA_ENGINE_BINARY", str(default_binary))).resolve()
     if not engine_binary.is_file():
-        print("AGATA_ENGINE_BINARY must point to the built Proxima Engine binary.", file=sys.stderr)
+        print(
+            "The built Proxima Engine binary was not found. Set AGATA_ENGINE_BINARY or check out and build agata-proxima.",
+            file=sys.stderr,
+        )
         return 2
 
     report_dir = root / "reports"
