@@ -1,9 +1,9 @@
-$ErrorActionPreference = "Stop"
 param(
     [Parameter(Mandatory = $true)]
     [string]$AgataRepoPath
 )
 
+$ErrorActionPreference = "Stop"
 $repoRoot = Split-Path -Parent $PSScriptRoot
 $envPath = Join-Path $repoRoot ".env"
 if (-not (Test-Path $envPath)) {
