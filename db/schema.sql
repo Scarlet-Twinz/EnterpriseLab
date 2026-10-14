@@ -24,18 +24,21 @@ CREATE TABLE IF NOT EXISTS customers (
     email TEXT NOT NULL,
     status TEXT NOT NULL CHECK (status IN ('active', 'prospect', 'suspended')),
     created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-    UNIQUE (tenant_id, email)
+    UNIQUE (tenant_id, email),
+    UNIQUE (tenant_id, id)
 );
 
 CREATE TABLE IF NOT EXISTS invoices (
     id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     tenant_id TEXT NOT NULL,
-    customer_id BIGINT NOT NULL REFERENCES customers(id),
+    customer_id BIGINT NOT NULL,
     amount_cents BIGINT NOT NULL CHECK (amount_cents > 0),
     currency CHAR(3) NOT NULL,
     description TEXT NOT NULL,
     status TEXT NOT NULL DEFAULT 'draft' CHECK (status IN ('draft', 'issued', 'paid', 'void')),
-    created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    CONSTRAINT invoices_customer_same_tenant
+        FOREIGN KEY (tenant_id, customer_id) REFERENCES customers (tenant_id, id)
 );
 
 CREATE TABLE IF NOT EXISTS documents (
@@ -82,7 +85,13 @@ VALUES
 ON CONFLICT (tenant_id, email) DO NOTHING;
 
 INSERT INTO documents (tenant_id, title, classification, body)
-VALUES
+SELECT seed.tenant_id, seed.title, seed.classification, seed.body
+FROM (VALUES
     ('tenant_a', 'Quarterly Finance Summary', 'confidential', 'Synthetic finance data for tenant A.'),
     ('tenant_b', 'Warehouse Access Procedures', 'restricted', 'Synthetic logistics procedures for tenant B.'),
-    ('tenant_c', 'Records Handling Policy', 'restricted', 'Synthetic health-sector policy data for tenant C.');
+    ('tenant_c', 'Records Handling Policy', 'restricted', 'Synthetic health-sector policy data for tenant C.')
+) AS seed(tenant_id, title, classification, body)
+WHERE NOT EXISTS (
+    SELECT 1 FROM documents d
+    WHERE d.tenant_id = seed.tenant_id AND d.title = seed.title
+);
