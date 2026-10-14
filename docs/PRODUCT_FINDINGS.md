@@ -5,11 +5,11 @@ This file records integration risks discovered while aligning Enterprise Lab to 
 ## Finding 1 — Proxima Verify token helper omits its TTL argument
 
 **Severity: High for release verification evidence**  
-**Status: Source-level defect confirmed; runtime execution still pending**
+**Status: Source-level defect confirmed and reproduced at runtime in Enterprise Lab CI**
 
 In [Agata Proxima's Proxima Verify harness](https://github.com/Scarlet-Twinz/Agata-proxima/blob/main/tools/proxima-verify.sh), the shell function defines a local TTL, but invokes Python with only the signing key and tenant ID. The embedded Python reads `sys.argv[3]` to calculate expiry. That argument is not supplied by the invocation shown in the current file, so the harness will raise an index error when `make_token` evaluates `sys.argv[3]`. This is confirmed by the source; the harness has not been executed against a live deployment in this lab.
 
-Enterprise Lab has an independent protocol suite in `scripts/proxima_protocol_suite.py`. That suite is not a substitute for fixing and successfully running the product's own verification harness; this finding should be resolved in a separate Agata Proxima change and re-tested there.
+Enterprise Lab has an independent protocol suite in `scripts/proxima_protocol_suite.py`, and it now runs alongside a runtime probe of the product harness. The lab does not repair or replace the product script. This finding should be resolved in a separate Agata Proxima change and re-tested there.
 
 ## Finding 2 — TLS behavior documentation is inconsistent
 
