@@ -136,7 +136,7 @@ def metrics() -> Response:
         lines.append(f"enterprise_lab_http_requests_total{{{labels}}} {count}")
         lines.append(f"enterprise_lab_http_request_duration_ms_sum{{{labels}}} {total_ms:.2f}")
         lines.append(f"enterprise_lab_http_request_duration_ms_count{{{labels}}} {int(observations)}")
-    return Response(content="\\n".join(lines) + "\\n", media_type="text/plain; version=0.0.4; charset=utf-8")
+    return Response(content="\n".join(lines) + "\n", media_type="text/plain; version=0.0.4; charset=utf-8")
 
 
 @app.get("/healthz")
