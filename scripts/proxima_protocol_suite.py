@@ -73,6 +73,13 @@ def main() -> int:
                 cur.execute("SELECT count(*) FROM customers WHERE tenant_id = %s", ("tenant_a",))
                 own_count = cur.fetchone()[0]
                 results.check("tenant A reads its own records", own_count >= 1, f"visible rows={own_count}")
+                cur.execute("SELECT current_user")
+                current_role = cur.fetchone()[0]
+                results.check(
+                    "signed tenant A selects the expected PostgreSQL role",
+                    current_role == "proxima_tenant_tenant_a",
+                    f"current_user={current_role}",
+                )
 
                 cur.execute("SELECT count(*) FROM customers WHERE tenant_id = %s", ("tenant_b",))
                 cross_count = cur.fetchone()[0]
@@ -87,6 +94,35 @@ def main() -> int:
                     f"visible rows={prepared_count}",
                 )
                 cur.execute("DEALLOCATE elab_cross_read")
+
+                cur.execute("UPDATE customers SET status = 'suspended' WHERE tenant_id = %s", ("tenant_b",))
+                results.check(
+                    "tenant A cannot update tenant B records",
+                    cur.rowcount == 0,
+                    f"affected rows={cur.rowcount}",
+                )
+                cur.execute("DELETE FROM customers WHERE tenant_id = %s", ("tenant_b",))
+                results.check(
+                    "tenant A cannot delete tenant B records",
+                    cur.rowcount == 0,
+                    f"affected rows={cur.rowcount}",
+                )
+
+                cur.execute("SAVEPOINT rollback_probe")
+                cur.execute(
+                    """INSERT INTO customers (tenant_id, name, email, status)
+                       VALUES ('tenant_a', 'ROLLBACK-ONLY PROBE', %s, 'active')""",
+                    (f"rollback-probe-own-{time.time_ns()}@example.test",),
+                )
+                cur.execute("ROLLBACK TO SAVEPOINT rollback_probe")
+                cur.execute("RELEASE SAVEPOINT rollback_probe")
+                cur.execute("SELECT count(*) FROM customers WHERE name = 'ROLLBACK-ONLY PROBE'")
+                rollback_count = cur.fetchone()[0]
+                results.check(
+                    "transaction rollback leaves no probe record",
+                    rollback_count == 0,
+                    f"visible probe rows={rollback_count}",
+                )
 
                 # Always roll back this write probe, even if a broken boundary allows it.
                 cur.execute("SAVEPOINT cross_tenant_write_probe")
