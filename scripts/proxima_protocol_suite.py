@@ -145,6 +145,89 @@ def main() -> int:
                 "RLS rejected the cross-tenant insert" if write_blocked else "insert was unexpectedly allowed (rolled back)",
             )
 
+            # Expand the database-level boundary checks beyond customers. These
+            # probes use only synthetic values and every cross-tenant write is
+            # isolated behind a savepoint so an unexpected success is rolled back.
+            cross_tables = {
+                "invoices": "SELECT count(*) FROM invoices WHERE tenant_id = %s",
+                "employees": "SELECT count(*) FROM employees WHERE tenant_id = %s",
+                "projects": "SELECT count(*) FROM projects WHERE tenant_id = %s",
+                "documents": "SELECT count(*) FROM documents WHERE tenant_id = %s",
+            }
+            for table, query in cross_tables.items():
+                cur.execute(query, ("bluehaven",))
+                visible = cur.fetchone()[0]
+                results.check(
+                    f"tenant A cannot read tenant B {table}",
+                    visible == 0,
+                    f"visible rows={visible}",
+                )
+                cur.execute(f"UPDATE {table} SET tenant_id = %s WHERE tenant_id = %s", ("northstar", "bluehaven"))
+                results.check(
+                    f"tenant A cannot update tenant B {table}",
+                    cur.rowcount == 0,
+                    f"affected rows={cur.rowcount}",
+                )
+                cur.execute(f"DELETE FROM {table} WHERE tenant_id = %s", ("bluehaven",))
+                results.check(
+                    f"tenant A cannot delete tenant B {table}",
+                    cur.rowcount == 0,
+                    f"affected rows={cur.rowcount}",
+                )
+
+            # Obtain a legitimate Bluehaven customer ID using Bluehaven's own
+            # context so the invoice probe cannot fail merely due to a bad FK.
+            with connect(make_token("bluehaven"), "bluehaven") as blue_conn:
+                with blue_conn.cursor() as blue_cur:
+                    blue_cur.execute("SELECT id FROM customers ORDER BY id LIMIT 1")
+                    blue_customer = blue_cur.fetchone()[0]
+
+            write_probes = [
+                (
+                    "invoices",
+                    """INSERT INTO invoices
+                       (tenant_id, customer_id, amount_cents, currency, description)
+                       VALUES ('bluehaven', %s, 12345, 'USD', %s)""",
+                    (blue_customer, f"RLS probe {time.time_ns()}"),
+                ),
+                (
+                    "employees",
+                    """INSERT INTO employees
+                       (tenant_id, name, email, department, job_title, status)
+                       VALUES ('bluehaven', 'RLS Probe', %s, 'Security', 'Tester', 'active')""",
+                    (f"rls-probe-{time.time_ns()}@example.test",),
+                ),
+                (
+                    "projects",
+                    """INSERT INTO projects
+                       (tenant_id, name, description, budget_cents, status)
+                       VALUES ('bluehaven', %s, 'Synthetic RLS probe', 0, 'planned')""",
+                    (f"RLS probe {time.time_ns()}",),
+                ),
+                (
+                    "documents",
+                    """INSERT INTO documents
+                       (tenant_id, title, classification, body)
+                       VALUES ('bluehaven', %s, 'confidential', 'Synthetic RLS probe')""",
+                    (f"RLS probe {time.time_ns()}",),
+                ),
+            ]
+            for table, statement, parameters in write_probes:
+                cur.execute("SAVEPOINT cross_table_write_probe")
+                blocked = False
+                try:
+                    cur.execute(statement, parameters)
+                except psycopg.Error as exc:
+                    blocked = exc.sqlstate == "42501"
+                finally:
+                    cur.execute("ROLLBACK TO SAVEPOINT cross_table_write_probe")
+                    cur.execute("RELEASE SAVEPOINT cross_table_write_probe")
+                results.check(
+                    f"tenant A cannot insert tenant B {table}",
+                    blocked,
+                    "RLS rejected cross-tenant insert" if blocked else "insert unexpectedly allowed (rolled back)",
+                )
+
         # Open fresh connections as tenants B and C, then reconnect as A. The
         # selected PostgreSQL role must follow each signed startup token.
         for tenant, other_tenants in (
