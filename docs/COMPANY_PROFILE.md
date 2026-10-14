@@ -29,9 +29,9 @@ The Control Plane is used separately for configuration, tenant/node management, 
 
 | Tenant ID | Fictional customer | Business scenario | Protected records |
 |---|---|---|---|
-| `tenant_a` | Northstar Operations Ltd | Finance and business operations | Customer contacts, invoices, project budgets, finance documents |
-| `tenant_b` | Bluehaven Logistics Ltd | Warehousing and logistics | Customers, operations staff, warehouse projects, restricted procedures |
-| `tenant_c` | Cedarstone Health Systems | Compliance and records governance | Staff, governance projects, restricted policy documents |
+| `northstar` | Northstar Operations Ltd | Finance and business operations | Customer contacts, invoices, project budgets, finance documents |
+| `bluehaven` | Bluehaven Logistics Ltd | Warehousing and logistics | Customers, operations staff, warehouse projects, restricted procedures |
+| `cedarstone` | Cedarstone Health Systems | Compliance and records governance | Staff, governance projects, restricted policy documents |
 
 All amounts are stored as integer cents and sample invoices use USD. The tenant IDs are synthetic identifiers, not identities that callers may choose freely: the Enterprise Lab API maps API keys to tenants server-side.
 
