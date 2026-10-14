@@ -82,6 +82,8 @@ def make_proxima_token(tenant_id: str, *, now: int | None = None, ttl_seconds: i
     except ValueError as exc:
         raise RuntimeError("PROXIMA_TOKEN_TTL_SECONDS must be an integer") from exc
     ttl = configured_ttl if ttl_seconds is None else ttl_seconds
+    if ttl < 1 or ttl > 3600:
+        raise RuntimeError("PROXIMA_TOKEN_TTL_SECONDS must be between 1 and 3600 seconds")
     issued_at = int(time.time()) if now is None else now
     expires = issued_at + ttl
     payload = f"v1.{tenant_id}.{expires}"
