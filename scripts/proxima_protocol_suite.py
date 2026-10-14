@@ -10,6 +10,8 @@ import hashlib
 import hmac
 import json
 import os
+import socket
+import struct
 import sys
 import time
 from dataclasses import dataclass
@@ -61,6 +63,31 @@ def connect(token: str, tenant: str = "northstar"):
         options=f"-c proxima_tenant_token={token}", connect_timeout=5,
     )
     return psycopg.connect(conninfo)
+
+def raw_probe_closes(packet: bytes) -> bool:
+    """Send one bounded raw startup probe and require the Engine to close it."""
+    dsn = os.getenv("PROXIMA_DATABASE_URL", "").strip()
+    if not dsn:
+        raise RuntimeError("PROXIMA_DATABASE_URL must point to the real Proxima Engine listener")
+    parsed = psycopg.conninfo.conninfo_to_dict(dsn)
+    host = parsed.get("host") or "127.0.0.1"
+    port = int(parsed.get("port") or 6432)
+    try:
+        with socket.create_connection((host, port), timeout=3) as sock:
+            sock.settimeout(3)
+            sock.sendall(packet)
+            sock.shutdown(socket.SHUT_WR)
+            received = 0
+            while received < 4096:
+                chunk = sock.recv(min(1024, 4096 - received))
+                if not chunk:
+                    return True
+                received += len(chunk)
+            return False
+    except (ConnectionResetError, BrokenPipeError):
+        return True
+    except TimeoutError:
+        return False
 
 
 def main() -> int:
@@ -281,6 +308,30 @@ def main() -> int:
             except (psycopg.Error, RuntimeError):
                 rejected = True
             results.check(label, rejected, "connection/query rejected" if rejected else "request unexpectedly succeeded")
+
+        # Send malformed traffic to the actual Engine listener. These are tiny,
+        # bounded probes: no flood and no attempt to consume significant memory.
+        invalid_length_packet = struct.pack("!i", 4) + b"\\x00" * 4
+        results.check(
+            "malformed short startup frame closes connection",
+            raw_probe_closes(invalid_length_packet),
+            "Engine closed the malformed protocol connection",
+        )
+
+        oversized_header = struct.pack("!i", 16 * 1024 * 1024 + 1)
+        results.check(
+            "oversized startup frame rejected before payload allocation",
+            raw_probe_closes(oversized_header),
+            "Engine closed the oversized protocol connection",
+        )
+
+        startup_body = struct.pack("!i", 196608) + b"user\\x00proxima\\x00database\\x00enterprise_lab\\x00\\x00"
+        missing_token_packet = struct.pack("!i", len(startup_body) + 4) + startup_body
+        results.check(
+            "valid-shaped startup without tenant token rejected",
+            raw_probe_closes(missing_token_packet),
+            "Engine closed startup missing required signed tenant context",
+        )
 
     except (psycopg.Error, RuntimeError, ValueError, TypeError, OSError) as exc:
         print(f"FATAL | protocol suite could not complete | {type(exc).__name__}: {exc}", file=sys.stderr)
