@@ -6,7 +6,7 @@ The company simulator owns realistic business workflows and synthetic data. Its 
 
 ## First implementation
 
-Read the [simulated US customer profile](docs/COMPANY_PROFILE.md) for the business scenario and acceptance goals.
+Read the [simulated US customer profile](docs/COMPANY_PROFILE.md) for the business scenario and acceptance goals. See [source-inspection findings](docs/PRODUCT_FINDINGS.md) for integration risks found in Agata Proxima; no product files were changed.
 
 - FastAPI business API for customers, employees, projects, invoices, and confidential documents.
 - PostgreSQL schema with tenant-specific roles and row-level security (RLS).
@@ -27,7 +27,7 @@ Administrative schema setup is separate and uses `LAB_ADMIN_DATABASE_URL` agains
 ## Quick start
 
 1. On Windows PowerShell, run `./scripts/setup.ps1` to generate local-only secrets and start the isolated database. Alternatively, copy `.env.example` to `.env` and replace its values.
-2. The database schema, synthetic records, tenant roles, and RLS policies are initialized on the database's first startup.
+2. If you copied `.env.example` manually, run `docker compose up -d enterprise-db`. The schema, synthetic records, tenant roles, and RLS policies initialize on the database's first startup; `setup.ps1` runs this command automatically.
 3. In a separate PowerShell terminal, run `./scripts/start-proxima.ps1 -AgataRepoPath <path-to-your-local-Agata-Proxima-repository>`. This launches the real Engine with runtime-only environment variables; it does not edit any file in Agata Proxima. It uses listener `127.0.0.1:6432`, upstream `127.0.0.1:55432`, the shared `PROXIMA_TENANT_SIGNING_KEY`, and the default `PROXIMA_TENANT_ROLE_PREFIX=proxima_tenant_`.
 4. In another terminal, run `./scripts/start-lab-api.ps1`. It creates the Python virtual environment if needed, installs dependencies, and starts the API on loopback.
 5. Once both the real Engine and API are running, open another terminal and run `./scripts/run-acceptance.ps1`. It runs unit tests, the direct Engine protocol suite, cross-tenant API attacks, and a bounded performance sample. Reports are written under `reports/`.
@@ -83,6 +83,6 @@ The attack suite requires the API to be running and the sample API keys from you
 - `LAB_POSTGRES_ADMIN_PASSWORD`: password for the disposable local PostgreSQL bootstrap administrator.
 - `LAB_TENANT_A_DB_PASSWORD`, `LAB_TENANT_B_DB_PASSWORD`, `LAB_TENANT_C_DB_PASSWORD`: passwords for the three isolated tenant login roles.
 - `PROXIMA_TOKEN_TTL_SECONDS`: signed tenant-context lifetime (default 300 seconds).
-- `LAB_BASE_URL`, `LAB_API_KEY_A`, `LAB_API_KEY_B`: attack-suite target and test identities.
+- `LAB_BASE_URL`, `LAB_API_KEY_A`, `LAB_API_KEY_B`, `LAB_API_KEY_C`: attack-suite target and test identities.
 
 The example values are for local-only development. Never use them in a deployed environment. No real customer data or production credentials belong in this repository.
