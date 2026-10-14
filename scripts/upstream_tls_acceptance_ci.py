@@ -14,8 +14,8 @@ from psycopg.conninfo import make_conninfo
 from app.security import make_proxima_token
 
 
-def run(command: list[str], *, check: bool = True, timeout: int = 30) -> subprocess.CompletedProcess:
-    return subprocess.run(command, check=check, capture_output=True, text=True, timeout=timeout)
+def run(command: list[str], *, check: bool = True, timeout: int = 30, env: dict[str, str] | None = None) -> subprocess.CompletedProcess:
+    return subprocess.run(command, check=check, capture_output=True, text=True, timeout=timeout, env=env)
 
 
 def wait_port(host: str, port: int, timeout: float = 20) -> None:
@@ -119,10 +119,9 @@ def main() -> int:
             db_env = os.environ.copy()
             db_env.update({"PGHOST": "127.0.0.1", "PGPORT": "5544", "PGUSER": "lab_admin",
                            "PGPASSWORD": "ci-admin-password", "PGDATABASE": "enterprise_lab"})
-            run(["psql", "-v", "ON_ERROR_STOP=1", "-f", str(root / "db/schema.sql")])
-            run(["sh", str(root / "db/02-create-tenant-roles.sh")], check=True)
-            # subprocesses inherit PG* so the role/schema setup targets this TLS server.
-            # The workflow exports these variables for the setup step too.
+            run(["psql", "-v", "ON_ERROR_STOP=1", "-f", str(root / "db/schema.sql")], env=db_env)
+            run(["sh", str(root / "db/02-create-tenant-roles.sh")], env=db_env)
+            # Explicit PG* environment ensures setup targets the disposable TLS server.
 
             cases = [
                 ("valid CA and matching hostname", str(ca_cert), "postgres-tls-test", True, 6435),
