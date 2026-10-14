@@ -18,7 +18,7 @@ The company simulator owns realistic business workflows and synthetic data. Its 
 
 Set `PROXIMA_DATABASE_URL` to the **Proxima Engine endpoint**, not the upstream PostgreSQL endpoint. Each business request opens a database connection with a signed `proxima_tenant_token` startup option. The Engine must verify the token and map the tenant to the intended PostgreSQL role.
 
-Tenant IDs used in the lab are `tenant_a`, `tenant_b`, and `tenant_c`; the corresponding PostgreSQL roles must be configured in the Engine/database. The schema's RLS policy assumes the selected role name equals the tenant ID. Adjust the mapping deliberately if the real deployment uses a different role convention.
+Tenant IDs used in the lab are `tenant_a`, `tenant_b`, and `tenant_c`; the corresponding PostgreSQL roles must be configured in the Engine/database. The Engine's default role prefix is `proxima_tenant_`, so `tenant_a` maps to PostgreSQL role `proxima_tenant_tenant_a`. The RLS policies explicitly bind each `tenant_id` to that role name. If the role prefix changes, update and re-test the database policies deliberately.
 
 Administrative schema setup is separate and uses `LAB_ADMIN_DATABASE_URL` against the upstream test database. The application never falls back to that URL.
 
@@ -26,7 +26,7 @@ Administrative schema setup is separate and uses `LAB_ADMIN_DATABASE_URL` agains
 
 1. On Windows PowerShell, run `./scripts/setup.ps1` to generate local-only secrets and start the isolated database. Alternatively, copy `.env.example` to `.env` and replace its values.
 2. Start the isolated upstream database: `docker compose up -d enterprise-db` (the setup script does this automatically). The schema, synthetic records, tenant roles, RLS policies, and limited Engine gateway role are initialized on the database's first startup.
-3. Configure the real Proxima Engine in the Agata Proxima repository to use the upstream database at `127.0.0.1:55432`, database `enterprise_lab`, user `proxima_gateway`, and the `PROXIMA_GATEWAY_PASSWORD` value. Map signed tenant IDs `tenant_a`, `tenant_b`, and `tenant_c` to the matching PostgreSQL roles and configure the same `PROXIMA_SIGNING_KEY` value in the Engine. The gateway role is non-superuser and has membership in the tenant roles so the Engine can switch to the selected tenant role.
+3. Configure the real Proxima Engine in the Agata Proxima repository to listen on `127.0.0.1:6432` and use upstream `127.0.0.1:55432`. Set `PROXIMA_TENANT_SIGNING_KEY` to the same value used by Enterprise Lab, and keep the default `PROXIMA_TENANT_ROLE_PREFIX=proxima_tenant_`. The Engine forwards the selected role's authentication exchange, so the lab backend uses each tenant role's separate password from `LAB_TENANT_DB_PASSWORDS`. The matching database login roles are `proxima_tenant_tenant_a`, `proxima_tenant_tenant_b`, and `proxima_tenant_tenant_c`.
 4. Set `PROXIMA_DATABASE_URL` to the actual Engine listener (default example: `127.0.0.1:6432`), never to port 55432.
 5. Install and run:
 
@@ -73,11 +73,12 @@ The attack suite requires the API to be running and the sample API keys from you
 ## Environment variables
 
 - `LAB_API_KEYS`: JSON object mapping API keys to trusted server-side identities, e.g. `{"replace-with-key-a":{"tenant_id":"tenant_a","role":"admin"}}`.
-- `PROXIMA_SIGNING_KEY`: secret used to sign tenant context; keep it in a secret store or local environment, never commit it.
+- `PROXIMA_TENANT_SIGNING_KEY`: shared signing secret for the real Engine and lab backend; keep it in a secret store or local environment, never commit it.
+- `LAB_TENANT_DB_PASSWORDS`: JSON object mapping tenant IDs to the matching PostgreSQL tenant-role passwords.
 - `PROXIMA_DATABASE_URL`: application DSN pointing to Proxima Engine.
 - `LAB_ADMIN_DATABASE_URL`: upstream admin DSN for manual schema setup only; never used by request handlers.
 - `LAB_POSTGRES_ADMIN_PASSWORD`: password for the disposable local PostgreSQL bootstrap administrator.
-- `PROXIMA_GATEWAY_PASSWORD`: password for the non-superuser upstream role used by the Proxima Engine.
+- `LAB_TENANT_A_DB_PASSWORD`, `LAB_TENANT_B_DB_PASSWORD`, `LAB_TENANT_C_DB_PASSWORD`: passwords for the three isolated tenant login roles.
 - `PROXIMA_TOKEN_TTL_SECONDS`: signed tenant-context lifetime (default 300 seconds).
 - `LAB_BASE_URL`, `LAB_API_KEY_A`, `LAB_API_KEY_B`: attack-suite target and test identities.
 
