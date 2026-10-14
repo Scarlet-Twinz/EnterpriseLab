@@ -37,7 +37,6 @@ CREATE TABLE IF NOT EXISTS invoices (
     description TEXT NOT NULL,
     status TEXT NOT NULL DEFAULT 'draft' CHECK (status IN ('draft', 'issued', 'paid', 'void')),
     created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-    UNIQUE (tenant_id, description),
     CONSTRAINT invoices_customer_same_tenant
         FOREIGN KEY (tenant_id, customer_id) REFERENCES customers (tenant_id, id)
 );
@@ -129,7 +128,10 @@ FROM (VALUES
     ('tenant_c', 'security@cedarstone.example', 76000, 'Records governance review', 'paid')
 ) AS seed(tenant_id, customer_email, amount_cents, description, status)
 JOIN customers c ON c.tenant_id = seed.tenant_id AND c.email = seed.customer_email
-ON CONFLICT (tenant_id, description) DO NOTHING;
+WHERE NOT EXISTS (
+    SELECT 1 FROM invoices i
+    WHERE i.tenant_id = seed.tenant_id AND i.description = seed.description
+);
 
 INSERT INTO employees (tenant_id, name, email, department, job_title, status)
 VALUES
