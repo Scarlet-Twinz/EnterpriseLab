@@ -1,6 +1,6 @@
 -- Run only against a disposable Enterprise Lab upstream PostgreSQL database
 -- using a database administrator. Application traffic must use Proxima Engine.
--- The Engine's tenant-to-role mapping must select tenant_a, tenant_b, or tenant_c.
+-- The Engine's default role prefix maps tenant_a/b/c to proxima_tenant_tenant_a/b/c.
 \set ON_ERROR_STOP on
 
 DO $$
