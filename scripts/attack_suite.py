@@ -2,10 +2,13 @@
 """Controlled attack suite for an isolated Enterprise Lab deployment."""
 from __future__ import annotations
 
+import hashlib
 import json
 import os
 import sys
 import time
+from datetime import datetime, timezone
+from pathlib import Path
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
@@ -17,6 +20,7 @@ load_dotenv()
 BASE_URL = os.getenv("LAB_BASE_URL", "http://127.0.0.1:8088").rstrip("/")
 KEY_A = os.getenv("LAB_API_KEY_A", "")
 KEY_B = os.getenv("LAB_API_KEY_B", "")
+RESULTS: list[dict[str, object]] = []
 
 
 def request(method: str, path: str, *, key: str | None = None, payload: object | None = None):
@@ -41,11 +45,42 @@ def request(method: str, path: str, *, key: str | None = None, payload: object |
 
 
 def check(label: str, condition: bool, detail: str) -> bool:
+    RESULTS.append({
+        "name": label,
+        "status": "PASS" if condition else "FAIL",
+        "detail": detail,
+        "recorded_at": datetime.now(timezone.utc).isoformat(),
+    })
     print(f'{"PASS" if condition else "FAIL"} | {label} | {detail}')
     return condition
 
 
+def write_report(started_at: str, failures: int) -> None:
+    report_dir = Path("reports")
+    report_dir.mkdir(parents=True, exist_ok=True)
+    completed_at = datetime.now(timezone.utc).isoformat()
+    report = {
+        "suite": "enterprise-lab-attack-suite",
+        "target": BASE_URL,
+        "started_at": started_at,
+        "completed_at": completed_at,
+        "status": "PASS" if failures == 0 else "FAIL",
+        "passed": sum(item["status"] == "PASS" for item in RESULTS),
+        "failed": failures,
+        "results": RESULTS,
+    }
+    encoded = json.dumps(report, indent=2, sort_keys=True).encode("utf-8")
+    filename = f"attack-suite-{datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%SZ')}.json"
+    report_path = report_dir / filename
+    report_path.write_bytes(encoded)
+    digest = hashlib.sha256(encoded).hexdigest()
+    (report_dir / f"{filename}.sha256").write_text(f"{digest}  {filename}\\n", encoding="utf-8")
+    print(f"Evidence report: {report_path}")
+    print(f"SHA-256: {digest}")
+
+
 def main() -> int:
+    started_at = datetime.now(timezone.utc).isoformat()
     if not KEY_A or not KEY_B:
         print("Set LAB_API_KEY_A and LAB_API_KEY_B to dedicated test API keys.", file=sys.stderr)
         return 2
@@ -117,6 +152,7 @@ def main() -> int:
         f"{successful}/{len(statuses)} succeeded; {elapsed_ms} ms total",
     )
 
+    write_report(started_at, failures)
     print(f"\nEnterprise Lab attack suite: {'PASS' if failures == 0 else 'FAIL'} ({failures} failed checks)")
     return 0 if failures == 0 else 1
 
