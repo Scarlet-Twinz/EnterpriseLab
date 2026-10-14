@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import hashlib
 import hmac
+import json
 import os
 import sys
 import time
@@ -35,9 +36,9 @@ class Results:
 
 
 def make_token(tenant: str, *, ttl: int = 300, tamper: bool = False) -> str:
-    secret = os.getenv("PROXIMA_SIGNING_KEY", "")
+    secret = os.getenv("PROXIMA_TENANT_SIGNING_KEY", "")
     if len(secret.encode()) < 32:
-        raise RuntimeError("PROXIMA_SIGNING_KEY must be at least 32 bytes")
+        raise RuntimeError("PROXIMA_TENANT_SIGNING_KEY must be at least 32 bytes")
     payload = f"v1.{tenant}.{int(time.time()) + ttl}"
     signature = hmac.new(secret.encode(), payload.encode(), hashlib.sha256).hexdigest()
     if tamper:
@@ -45,11 +46,21 @@ def make_token(tenant: str, *, ttl: int = 300, tamper: bool = False) -> str:
     return f"{payload}.{signature}"
 
 
-def connect(token: str):
+def connect(token: str, tenant: str = "tenant_a"):
     dsn = os.getenv("PROXIMA_DATABASE_URL", "").strip()
     if not dsn:
         raise RuntimeError("PROXIMA_DATABASE_URL must point to the real Proxima Engine listener")
-    conninfo = make_conninfo(dsn, options=f"-c proxima_tenant_token={token}", connect_timeout=5)
+    try:
+        passwords = json.loads(os.getenv("LAB_TENANT_DB_PASSWORDS", "{}"))
+    except json.JSONDecodeError as exc:
+        raise RuntimeError("LAB_TENANT_DB_PASSWORDS must be a JSON object") from exc
+    password = passwords.get(tenant)
+    if not isinstance(password, str) or not password:
+        raise RuntimeError(f"No database password configured for {tenant}")
+    conninfo = make_conninfo(
+        dsn, user="proxima", password=password,
+        options=f"-c proxima_tenant_token={token}", connect_timeout=5,
+    )
     return psycopg.connect(conninfo)
 
 
