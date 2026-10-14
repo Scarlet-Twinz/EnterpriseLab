@@ -41,6 +41,28 @@ CREATE TABLE IF NOT EXISTS invoices (
         FOREIGN KEY (tenant_id, customer_id) REFERENCES customers (tenant_id, id)
 );
 
+CREATE TABLE IF NOT EXISTS employees (
+    id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    tenant_id TEXT NOT NULL,
+    name TEXT NOT NULL,
+    email TEXT NOT NULL,
+    department TEXT NOT NULL,
+    job_title TEXT NOT NULL,
+    status TEXT NOT NULL CHECK (status IN ('active', 'inactive', 'leave')),
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    UNIQUE (tenant_id, email)
+);
+
+CREATE TABLE IF NOT EXISTS projects (
+    id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    tenant_id TEXT NOT NULL,
+    name TEXT NOT NULL,
+    description TEXT NOT NULL,
+    budget_cents BIGINT NOT NULL CHECK (budget_cents >= 0),
+    status TEXT NOT NULL CHECK (status IN ('planned', 'active', 'paused', 'completed')),
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
 CREATE TABLE IF NOT EXISTS documents (
     id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     tenant_id TEXT NOT NULL,
@@ -54,6 +76,10 @@ ALTER TABLE customers ENABLE ROW LEVEL SECURITY;
 ALTER TABLE customers FORCE ROW LEVEL SECURITY;
 ALTER TABLE invoices ENABLE ROW LEVEL SECURITY;
 ALTER TABLE invoices FORCE ROW LEVEL SECURITY;
+ALTER TABLE employees ENABLE ROW LEVEL SECURITY;
+ALTER TABLE employees FORCE ROW LEVEL SECURITY;
+ALTER TABLE projects ENABLE ROW LEVEL SECURITY;
+ALTER TABLE projects FORCE ROW LEVEL SECURITY;
 ALTER TABLE documents ENABLE ROW LEVEL SECURITY;
 ALTER TABLE documents FORCE ROW LEVEL SECURITY;
 
@@ -67,13 +93,23 @@ CREATE POLICY invoices_tenant_boundary ON invoices
     USING (tenant_id = current_user)
     WITH CHECK (tenant_id = current_user);
 
+DROP POLICY IF EXISTS employees_tenant_boundary ON employees;
+CREATE POLICY employees_tenant_boundary ON employees
+    USING (tenant_id = current_user)
+    WITH CHECK (tenant_id = current_user);
+
+DROP POLICY IF EXISTS projects_tenant_boundary ON projects;
+CREATE POLICY projects_tenant_boundary ON projects
+    USING (tenant_id = current_user)
+    WITH CHECK (tenant_id = current_user);
+
 DROP POLICY IF EXISTS documents_tenant_boundary ON documents;
 CREATE POLICY documents_tenant_boundary ON documents
     USING (tenant_id = current_user)
     WITH CHECK (tenant_id = current_user);
 
 GRANT USAGE ON SCHEMA public TO tenant_a, tenant_b, tenant_c;
-GRANT SELECT, INSERT, UPDATE, DELETE ON customers, invoices, documents TO tenant_a, tenant_b, tenant_c;
+GRANT SELECT, INSERT, UPDATE, DELETE ON customers, invoices, employees, projects, documents TO tenant_a, tenant_b, tenant_c;
 GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO tenant_a, tenant_b, tenant_c;
 
 -- Synthetic records for proving tenant separation. These are fictional.
@@ -83,6 +119,25 @@ VALUES
     ('tenant_b', 'Bluehaven Logistics Ltd', 'accounts@bluehaven.example', 'active'),
     ('tenant_c', 'Cedarstone Health Systems', 'security@cedarstone.example', 'active')
 ON CONFLICT (tenant_id, email) DO NOTHING;
+
+INSERT INTO employees (tenant_id, name, email, department, job_title, status)
+VALUES
+    ('tenant_a', 'Maya Okafor', 'maya.okafor@northstar.example', 'Finance', 'Finance Manager', 'active'),
+    ('tenant_b', 'Daniel Mensah', 'daniel.mensah@bluehaven.example', 'Operations', 'Operations Lead', 'active'),
+    ('tenant_c', 'Amina Bello', 'amina.bello@cedarstone.example', 'Compliance', 'Compliance Officer', 'active')
+ON CONFLICT (tenant_id, email) DO NOTHING;
+
+INSERT INTO projects (tenant_id, name, description, budget_cents, status)
+SELECT seed.tenant_id, seed.name, seed.description, seed.budget_cents, seed.status
+FROM (VALUES
+    ('tenant_a', 'Quarterly Close', 'Synthetic financial close workflow.', 1250000, 'active'),
+    ('tenant_b', 'Warehouse Modernization', 'Synthetic inventory and warehouse workflow.', 4800000, 'planned'),
+    ('tenant_c', 'Records Governance', 'Synthetic compliance and records workflow.', 2200000, 'active')
+) AS seed(tenant_id, name, description, budget_cents, status)
+WHERE NOT EXISTS (
+    SELECT 1 FROM projects p
+    WHERE p.tenant_id = seed.tenant_id AND p.name = seed.name
+);
 
 INSERT INTO documents (tenant_id, title, classification, body)
 SELECT seed.tenant_id, seed.title, seed.classification, seed.body
