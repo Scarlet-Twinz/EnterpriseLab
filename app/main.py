@@ -53,6 +53,21 @@ class DocumentCreate(StrictModel):
     body: Annotated[str, StringConstraints(min_length=1, max_length=20000)]
 
 
+class EmployeeCreate(StrictModel):
+    name: Name
+    email: Email
+    department: Name
+    job_title: Name
+    status: str = Field(default="active", pattern="^(active|inactive|leave)$")
+
+
+class ProjectCreate(StrictModel):
+    name: Name
+    description: Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=2000)]
+    budget_cents: int = Field(ge=0, le=10_000_000_000)
+    status: str = Field(default="planned", pattern="^(planned|active|paused|completed)$")
+
+
 def _run(principal: Principal, sql: str, params: tuple[Any, ...] = (), *, one: bool = False) -> Any:
     try:
         with connect_as(principal) as conn:
@@ -160,6 +175,52 @@ def create_invoice(payload: InvoiceCreate, principal: PrincipalDep) -> dict[str,
            VALUES (%s, %s, %s, %s, %s)
            RETURNING id, customer_id, amount_cents, currency, description, status, created_at""",
         (principal.tenant_id, payload.customer_id, payload.amount_cents, payload.currency, payload.description),
+        one=True,
+    )
+
+
+@app.get("/api/v1/employees")
+def list_employees(principal: PrincipalDep) -> list[dict[str, Any]]:
+    return _run(
+        principal,
+        """SELECT id, name, email, department, job_title, status, created_at
+           FROM employees WHERE tenant_id = %s ORDER BY id""",
+        (principal.tenant_id,),
+    )
+
+
+@app.post("/api/v1/employees", status_code=201)
+def create_employee(payload: EmployeeCreate, principal: PrincipalDep) -> dict[str, Any]:
+    _require_write(principal)
+    return _run(
+        principal,
+        """INSERT INTO employees (tenant_id, name, email, department, job_title, status)
+           VALUES (%s, %s, %s, %s, %s, %s)
+           RETURNING id, name, email, department, job_title, status, created_at""",
+        (principal.tenant_id, payload.name, payload.email, payload.department, payload.job_title, payload.status),
+        one=True,
+    )
+
+
+@app.get("/api/v1/projects")
+def list_projects(principal: PrincipalDep) -> list[dict[str, Any]]:
+    return _run(
+        principal,
+        """SELECT id, name, description, budget_cents, status, created_at
+           FROM projects WHERE tenant_id = %s ORDER BY id""",
+        (principal.tenant_id,),
+    )
+
+
+@app.post("/api/v1/projects", status_code=201)
+def create_project(payload: ProjectCreate, principal: PrincipalDep) -> dict[str, Any]:
+    _require_write(principal)
+    return _run(
+        principal,
+        """INSERT INTO projects (tenant_id, name, description, budget_cents, status)
+           VALUES (%s, %s, %s, %s, %s)
+           RETURNING id, name, description, budget_cents, status, created_at""",
+        (principal.tenant_id, payload.name, payload.description, payload.budget_cents, payload.status),
         one=True,
     )
 
