@@ -105,6 +105,7 @@ def main() -> int:
     api_log = report_dir / "enterprise-lab-api.log"
     engine = None
     api = None
+    outage_engine = None
 
     try:
         with engine_log.open("w", encoding="utf-8") as log:
@@ -214,6 +215,73 @@ def main() -> int:
                 print(verify_result.stderr, file=sys.stderr, end="")
             return verify_result.returncode or 1
 
+        # Exercise dependency failure using a second real Engine process pointed
+        # at an intentionally closed loopback port. No production or shared DB is
+        # touched; the expected result is a rejected client connection.
+        outage_log = report_dir / "proxima-engine-upstream-outage.log"
+        outage_env = os.environ.copy()
+        outage_env.update({
+            "PROXIMA_LISTEN_ADDR": "127.0.0.1:6433",
+            "PROXIMA_UPSTREAM_ADDR": "127.0.0.1:59999",
+            "PROXIMA_UPSTREAM_CONNECT_TIMEOUT_MS": "1000",
+            "PROXIMA_TENANT_ROLE_PREFIX": "labrole_",
+            "PROXIMA_UPSTREAM_TLS_MODE": "disable",
+            "PROXIMA_DASHBOARD_ENABLED": "false",
+            "PROXIMA_DASHBOARD_LISTEN_ADDR": "127.0.0.1:9081",
+        })
+        with outage_log.open("w", encoding="utf-8") as log:
+            outage_engine = subprocess.Popen(
+                [str(engine_binary)],
+                cwd=engine_binary.parent.parent.parent,
+                env=outage_env,
+                stdout=log,
+                stderr=subprocess.STDOUT,
+                start_new_session=True,
+            )
+
+        outage_deadline = time.monotonic() + 10
+        outage_listener_ready = False
+        while time.monotonic() < outage_deadline:
+            if outage_engine.poll() is not None:
+                raise RuntimeError(f"Outage-test Engine exited early; see {outage_log}")
+            try:
+                with socket.create_connection(("127.0.0.1", 6433), timeout=0.5):
+                    outage_listener_ready = True
+                    break
+            except OSError:
+                time.sleep(0.2)
+        if not outage_listener_ready:
+            raise RuntimeError(f"Outage-test Engine did not listen on 127.0.0.1:6433; see {outage_log}")
+
+        outage_conninfo = make_conninfo(
+            "postgresql://proxima@127.0.0.1:6433/enterprise_lab?sslmode=disable",
+            user="proxima",
+            password=tenant_passwords["northstar"],
+            options=f"-c proxima_tenant_token={make_proxima_token('northstar')}",
+            connect_timeout=4,
+        )
+        outage_rejected = False
+        try:
+            with psycopg.connect(outage_conninfo) as outage_conn:
+                with outage_conn.cursor() as outage_cur:
+                    outage_cur.execute("SELECT 1")
+                    outage_cur.fetchone()
+        except psycopg.Error:
+            outage_rejected = True
+        time.sleep(0.1)
+        outage_text = outage_log.read_text(encoding="utf-8", errors="replace").lower()
+        upstream_unreachable = "connection refused" in outage_text or "os error 111" in outage_text
+        if outage_rejected and upstream_unreachable:
+            print("PASS | upstream PostgreSQL outage fails closed | client query rejected; unreachable upstream confirmed in Engine log")
+        else:
+            print(
+                "FAIL | upstream PostgreSQL outage acceptance "
+                f"(client_rejected={outage_rejected}, upstream_unreachable_logged={upstream_unreachable})",
+                file=sys.stderr,
+            )
+            print_log(outage_log)
+            return 1
+
         print("\nPASS | all live Enterprise Lab suites completed against the real Proxima Engine")
         return 0
     except (OSError, RuntimeError, subprocess.SubprocessError) as exc:
@@ -222,6 +290,7 @@ def main() -> int:
         print_log(api_log)
         return 1
     finally:
+        stop_process(outage_engine)
         stop_process(api)
         stop_process(engine)
 
