@@ -17,8 +17,9 @@ import urllib.request
 from pathlib import Path
 
 import psycopg
-from app.security import make_proxima_token
 from psycopg.conninfo import make_conninfo
+
+from app.security import make_proxima_token
 
 
 def wait_for_enforcement(process: subprocess.Popen, log_path: Path, timeout_seconds: int = 15) -> None:
@@ -266,10 +267,9 @@ def main() -> int:
         )
         outage_rejected = False
         try:
-            with psycopg.connect(outage_conninfo) as outage_conn:
-                with outage_conn.cursor() as outage_cur:
-                    outage_cur.execute("SELECT 1")
-                    outage_cur.fetchone()
+            with psycopg.connect(outage_conninfo) as outage_conn, outage_conn.cursor() as outage_cur:
+                outage_cur.execute("SELECT 1")
+                outage_cur.fetchone()
         except psycopg.Error:
             outage_rejected = True
         time.sleep(0.1)
