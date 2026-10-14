@@ -3,7 +3,7 @@ import json
 import pytest
 from psycopg.conninfo import conninfo_to_dict
 
-import app.db as db
+from app import db
 from app.security import Principal
 
 
