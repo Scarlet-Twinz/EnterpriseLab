@@ -19,6 +19,7 @@ load_dotenv()
 BASE_URL = os.getenv("LAB_BASE_URL", "http://127.0.0.1:8088").rstrip("/")
 KEY_A = os.getenv("LAB_API_KEY_A", "")
 KEY_B = os.getenv("LAB_API_KEY_B", "")
+KEY_C = os.getenv("LAB_API_KEY_C", "")
 RESULTS: list[dict[str, object]] = []
 
 
@@ -80,8 +81,8 @@ def write_report(started_at: str, failures: int) -> None:
 
 def main() -> int:
     started_at = datetime.now(UTC).isoformat()
-    if not KEY_A or not KEY_B:
-        print("Set LAB_API_KEY_A and LAB_API_KEY_B to dedicated test API keys.", file=sys.stderr)
+    if not KEY_A or not KEY_B or not KEY_C:
+        print("Set LAB_API_KEY_A, LAB_API_KEY_B, and LAB_API_KEY_C to dedicated test API keys.", file=sys.stderr)
         return 2
 
     failures = 0
@@ -182,6 +183,42 @@ def main() -> int:
                     list_status == 200 and not leaked,
                     f"HTTP {list_status}; marker_visible={leaked}",
                 )
+
+    viewer_status, viewer_documents = request("GET", "/api/v1/documents", key=KEY_C)
+    restricted_visible = (
+        any(item.get("classification") != "internal" for item in viewer_documents)
+        if isinstance(viewer_documents, list)
+        else True
+    )
+    failures += not check(
+        "viewer can only list internal documents",
+        viewer_status == 200 and not restricted_visible,
+        f"HTTP {viewer_status}; restricted_visible={restricted_visible}",
+    )
+
+    viewer_write_status, _ = request(
+        "POST", "/api/v1/customers", key=KEY_C,
+        payload={"name": "Viewer Write Probe", "email": f"viewer-{time.time_ns()}@example.test"},
+    )
+    failures += not check(
+        "viewer cannot write business records",
+        viewer_write_status == 403,
+        f"HTTP {viewer_write_status}",
+    )
+
+    restricted_status, _ = request(
+        "POST", "/api/v1/documents", key=KEY_B,
+        payload={
+            "title": "Operator Restricted Write Probe",
+            "classification": "restricted",
+            "body": "Synthetic authorization probe",
+        },
+    )
+    failures += not check(
+        "operator cannot create restricted documents",
+        restricted_status == 403,
+        f"HTTP {restricted_status}",
+    )
 
     # Attempt to smuggle a tenant ID into a strict request body.
     status, _ = request(
