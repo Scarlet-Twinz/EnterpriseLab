@@ -1,6 +1,6 @@
 -- Run only against a disposable Enterprise Lab upstream PostgreSQL database
 -- using a database administrator. Application traffic must use Proxima Engine.
--- The Engine's default role prefix maps northstar/b/c to proxima_tenant_northstar/b/c.
+-- The Engine's default role prefix maps northstar, bluehaven, and cedarstone to their proxima_tenant_* roles.
 \set ON_ERROR_STOP on
 
 DO $$
@@ -8,11 +8,11 @@ BEGIN
     IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'proxima_tenant_northstar') THEN
         CREATE ROLE proxima_tenant_northstar NOLOGIN NOSUPERUSER NOBYPASSRLS;
     END IF;
-    IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'proxima_bluehavenluehaven') THEN
-        CREATE ROLE proxima_bluehavenluehaven NOLOGIN NOSUPERUSER NOBYPASSRLS;
+    IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'proxima_tenant_bluehaven') THEN
+        CREATE ROLE proxima_tenant_bluehaven NOLOGIN NOSUPERUSER NOBYPASSRLS;
     END IF;
-    IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'proxima_cedarstoneedarstone') THEN
-        CREATE ROLE proxima_cedarstoneedarstone NOLOGIN NOSUPERUSER NOBYPASSRLS;
+    IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'proxima_tenant_cedarstone') THEN
+        CREATE ROLE proxima_tenant_cedarstone NOLOGIN NOSUPERUSER NOBYPASSRLS;
     END IF;
 END
 $$;
@@ -108,9 +108,9 @@ CREATE POLICY documents_bluehavenoundary ON documents
     USING (current_user = 'proxima_tenant_' || tenant_id)
     WITH CHECK (current_user = 'proxima_tenant_' || tenant_id);
 
-GRANT USAGE ON SCHEMA public TO proxima_tenant_northstar, proxima_bluehavenluehaven, proxima_cedarstoneedarstone;
-GRANT SELECT, INSERT, UPDATE, DELETE ON customers, invoices, employees, projects, documents TO proxima_tenant_northstar, proxima_bluehavenluehaven, proxima_cedarstoneedarstone;
-GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO proxima_tenant_northstar, proxima_bluehavenluehaven, proxima_cedarstoneedarstone;
+GRANT USAGE ON SCHEMA public TO proxima_tenant_northstar, proxima_tenant_bluehaven, proxima_tenant_cedarstone;
+GRANT SELECT, INSERT, UPDATE, DELETE ON customers, invoices, employees, projects, documents TO proxima_tenant_northstar, proxima_tenant_bluehaven, proxima_tenant_cedarstone;
+GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO proxima_tenant_northstar, proxima_tenant_bluehaven, proxima_tenant_cedarstone;
 
 -- Synthetic records for proving tenant separation. These are fictional.
 INSERT INTO customers (tenant_id, name, email, status)
