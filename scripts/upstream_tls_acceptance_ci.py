@@ -15,7 +15,10 @@ from app.security import make_proxima_token
 
 
 def run(command: list[str], *, check: bool = True, timeout: int = 30, env: dict[str, str] | None = None) -> subprocess.CompletedProcess:
-    return subprocess.run(command, check=check, capture_output=True, text=True, timeout=timeout, env=env)
+    result = subprocess.run(command, check=False, capture_output=True, text=True, timeout=timeout, env=env)
+    if check and result.returncode:
+        raise RuntimeError(f"Command failed ({result.returncode}): {' '.join(command)}\\nSTDOUT: {result.stdout}\\nSTDERR: {result.stderr}")
+    return result
 
 
 def wait_port(host: str, port: int, timeout: float = 20) -> None:
