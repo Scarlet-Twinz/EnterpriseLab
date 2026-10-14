@@ -14,11 +14,11 @@ Enterprise Lab has an independent protocol suite in `scripts/proxima_protocol_su
 ## Finding 2 — TLS behavior documentation is inconsistent
 
 **Severity: High for deployment configuration**  
-**Status: Requires explicit deployment-mode acceptance**
+**Status: Client TLS tested in isolated CI; upstream TLS and production deployment acceptance remain pending**
 
 The current Agata Proxima README describes TLS termination at Proxima and optional upstream CA/hostname verification. The current `docs/verification.md` also contains wording that describes end-to-end TLS through the Engine and says tenant enforcement cannot inspect that encrypted session. These statements describe different deployment paths and need to be reconciled with the actual configured mode.
 
-Enterprise Lab's local launcher intentionally uses loopback and disables upstream TLS for its isolated development run. That is not evidence of production TLS acceptance. Source inspection of `crates/proxima-engine/src/tls.rs` also shows that the client-side TLS acceptor uses `with_no_client_auth()`: TLS protects the client connection, but this code does not authenticate client certificates (mTLS). The `PROXIMA_TLS_CERT_FILE` and `PROXIMA_TLS_KEY_FILE` values are the Engine's server certificate and private key, not a client certificate/key. A separate runtime test must verify plaintext rejection when client TLS is required, successful TLS negotiation with the configured server certificate, and upstream CA plus hostname validation when `PROXIMA_UPSTREAM_TLS_MODE=verify-full`. Do not describe this as mTLS.
+Enterprise Lab now has a separate isolated runtime test that generates a disposable server certificate, confirms the real Engine rejects plaintext when client TLS is required, and confirms a TLS PostgreSQL client retains the expected tenant role. This validates the tested client-TLS path only. The normal live integration still uses loopback with upstream TLS disabled, so it is not evidence of production TLS acceptance or upstream CA/hostname validation. Source inspection of `crates/proxima-engine/src/tls.rs` also shows that the client-side TLS acceptor uses `with_no_client_auth()`: TLS protects the client connection, but this code does not authenticate client certificates (mTLS). The `PROXIMA_TLS_CERT_FILE` and `PROXIMA_TLS_KEY_FILE` values are the Engine's server certificate and private key, not a client certificate/key. A separate runtime test must verify plaintext rejection when client TLS is required, successful TLS negotiation with the configured server certificate, and upstream CA plus hostname validation when `PROXIMA_UPSTREAM_TLS_MODE=verify-full`. Do not describe this as mTLS.
 
 ## Finding 3 — Tenant enforcement depends on Engine signing-key configuration
 
