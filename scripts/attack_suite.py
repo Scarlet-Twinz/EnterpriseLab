@@ -10,6 +10,10 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
 
+from dotenv import load_dotenv
+
+load_dotenv()
+
 BASE_URL = os.getenv("LAB_BASE_URL", "http://127.0.0.1:8088").rstrip("/")
 KEY_A = os.getenv("LAB_API_KEY_A", "")
 KEY_B = os.getenv("LAB_API_KEY_B", "")
