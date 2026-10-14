@@ -27,18 +27,13 @@ Administrative schema setup is separate and uses `LAB_ADMIN_DATABASE_URL` agains
 ## Quick start
 
 1. On Windows PowerShell, run `./scripts/setup.ps1` to generate local-only secrets and start the isolated database. Alternatively, copy `.env.example` to `.env` and replace its values.
-2. Start the isolated upstream database: `docker compose up -d enterprise-db` (the setup script does this automatically). The schema, synthetic records, tenant roles, and RLS policies are initialized on the database's first startup.
-3. In a separate PowerShell terminal, run `./scripts/start-proxima.ps1 -AgataRepoPath <path-to-your-local-Agata-Proxima-repository>`. This launches the real Engine with runtime-only environment variables; it does not edit any file in Agata Proxima. It uses listener `127.0.0.1:6432`, upstream `127.0.0.1:55432`, the shared `PROXIMA_TENANT_SIGNING_KEY`, and the default `PROXIMA_TENANT_ROLE_PREFIX=proxima_tenant_`. The Engine forwards the selected role's authentication exchange, so the lab backend uses each tenant role's separate password from `LAB_TENANT_DB_PASSWORDS`. The matching database login roles are `proxima_tenant_tenant_a`, `proxima_tenant_tenant_b`, and `proxima_tenant_tenant_c`.
-4. Keep `PROXIMA_DATABASE_URL` pointed at the Engine listener (`127.0.0.1:6432`), never port `55432`.
-5. Install and run:
+2. The database schema, synthetic records, tenant roles, and RLS policies are initialized on the database's first startup.
+3. In a separate PowerShell terminal, run `./scripts/start-proxima.ps1 -AgataRepoPath <path-to-your-local-Agata-Proxima-repository>`. This launches the real Engine with runtime-only environment variables; it does not edit any file in Agata Proxima. It uses listener `127.0.0.1:6432`, upstream `127.0.0.1:55432`, the shared `PROXIMA_TENANT_SIGNING_KEY`, and the default `PROXIMA_TENANT_ROLE_PREFIX=proxima_tenant_`.
+4. In another terminal, run `./scripts/start-lab-api.ps1`. It creates the Python virtual environment if needed, installs dependencies, and starts the API on loopback.
+5. Once both the real Engine and API are running, open another terminal and run `./scripts/run-acceptance.ps1`. It runs unit tests, the direct Engine protocol suite, cross-tenant API attacks, and a bounded performance sample. Reports are written under `reports/`.
+6. To test the Control Plane separately, configure `AGATA_CONTROL_PLANE_URL`, `AGATA_LAB_EMAIL`, and `AGATA_LAB_PASSWORD` in the ignored local `.env` with a dedicated test account, then run `python scripts/control_plane_acceptance.py`. This is read-only and does not create resources.
 
-```bash
-python -m venv .venv
-# Windows: .venv\Scripts\activate
-# macOS/Linux: source .venv/bin/activate
-pip install -e ".[dev]"
-uvicorn app.main:app --host 127.0.0.1 --port 8088
-```
+Application database traffic must use the Engine listener at `127.0.0.1:6432`, never the upstream PostgreSQL port `55432`.
 
 Health check: `GET http://127.0.0.1:8088/healthz`
 
