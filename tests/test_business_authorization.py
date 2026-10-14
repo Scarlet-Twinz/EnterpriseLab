@@ -10,7 +10,7 @@ def _configure(monkeypatch, key, tenant, role):
 
 
 def test_viewer_can_only_list_internal_documents(monkeypatch):
-    _configure(monkeypatch, "viewer-key", "tenant_c", "viewer")
+    _configure(monkeypatch, "viewer-key", "cedarstone", "viewer")
     observed = {}
 
     def fake_run(principal, sql, params=(), *, one=False):
@@ -25,11 +25,11 @@ def test_viewer_can_only_list_internal_documents(monkeypatch):
     )
     assert response.status_code == 200
     assert "classification = 'internal'" in observed["sql"]
-    assert observed["params"] == ("tenant_c",)
+    assert observed["params"] == ("cedarstone",)
 
 
 def test_operator_cannot_create_restricted_document(monkeypatch):
-    _configure(monkeypatch, "operator-key", "tenant_b", "operator")
+    _configure(monkeypatch, "operator-key", "bluehaven", "operator")
     called = False
 
     def fake_run(*args, **kwargs):
@@ -48,7 +48,7 @@ def test_operator_cannot_create_restricted_document(monkeypatch):
 
 
 def test_admin_can_create_restricted_document(monkeypatch):
-    _configure(monkeypatch, "admin-key", "tenant_a", "admin")
+    _configure(monkeypatch, "admin-key", "northstar", "admin")
     monkeypatch.setattr(
         main_module,
         "_run",
