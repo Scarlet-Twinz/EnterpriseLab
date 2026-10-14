@@ -86,7 +86,7 @@ jobs:
       PROXIMA_TENANT_ROLE_PREFIX: proxima_tenant_
       PROXIMA_UPSTREAM_TLS_MODE: disable
       PROXIMA_TENANT_SIGNING_KEY: ci-enterprise-lab-signing-key-that-is-over-32-bytes
-      PROXIMA_DATABASE_URL: postgresql://proxima@127.0.0.1:6432/enterprise_lab
+      PROXIMA_DATABASE_URL: postgresql://proxima@127.0.0.1:6432/enterprise_lab?sslmode=disable
       LAB_TENANT_DB_PASSWORDS: '{"tenant_a":"ci-tenant-a-password","tenant_b":"ci-tenant-b-password","tenant_c":"ci-tenant-c-password"}'
       LAB_API_KEYS: '{"ci-key-a":{"tenant_id":"tenant_a","role":"admin"},"ci-key-b":{"tenant_id":"tenant_b","role":"operator"},"ci-key-c":{"tenant_id":"tenant_c","role":"viewer"}}'
       LAB_BASE_URL: http://127.0.0.1:8088
