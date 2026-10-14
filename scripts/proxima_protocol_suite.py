@@ -177,10 +177,9 @@ def main() -> int:
 
             # Obtain a legitimate Bluehaven customer ID using Bluehaven's own
             # context so the invoice probe cannot fail merely due to a bad FK.
-            with connect(make_token("bluehaven"), "bluehaven") as blue_conn:
-                with blue_conn.cursor() as blue_cur:
-                    blue_cur.execute("SELECT id FROM customers ORDER BY id LIMIT 1")
-                    blue_customer = blue_cur.fetchone()[0]
+            with connect(make_token("bluehaven"), "bluehaven") as blue_conn, blue_conn.cursor() as blue_cur:
+                blue_cur.execute("SELECT id FROM customers ORDER BY id LIMIT 1")
+                blue_customer = blue_cur.fetchone()[0]
 
             write_probes = [
                 (
