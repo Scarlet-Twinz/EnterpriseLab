@@ -11,7 +11,6 @@ import json
 import os
 import subprocess
 import sys
-import time
 import uuid
 from datetime import UTC, datetime
 from pathlib import Path
@@ -88,7 +87,7 @@ def shape(value: Any) -> str:
     if isinstance(value, list):
         return f"JSON array; items={len(value)}"
     if isinstance(value, dict):
-        keys = sorted(key for key in value.keys() if not key.startswith("_"))
+        keys = sorted(key for key in value if not key.startswith("_"))
         return "JSON object; keys=" + ",".join(keys[:12])
     if value is None:
         return "empty response"
@@ -208,7 +207,7 @@ def main() -> int:
         readiness_status, readiness_body = call(anonymous, "GET", "/api/v1/production/readiness")
         readiness_value = find_value(readiness_body, {"status", "readiness", "state"})
         readiness_ready = find_value(readiness_body, {"ready"})
-        if readiness_status == 200 and (readiness_ready is True or readiness_value in {"ready", "READY"}):
+        if readiness_status == 200 and (readiness_ready is True or (isinstance(readiness_value, str) and readiness_value.lower() == "ready")):
             readiness = "ready"
         elif readiness_status == 200:
             readiness = str(readiness_value or "needs_review")
