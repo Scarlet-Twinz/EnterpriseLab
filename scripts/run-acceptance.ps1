@@ -19,7 +19,8 @@ try {
     foreach ($check in $checks) {
         Write-Host ""
         Write-Host ("========== " + $check.Name + " ==========") -ForegroundColor Cyan
-        & $python @($check.Args)
+        $arguments = $check.Args
+        & $python @arguments
         if ($LASTEXITCODE -ne 0) {
             throw ("Acceptance stage failed: " + $check.Name + " (exit code " + $LASTEXITCODE + "). Review the output and reports before continuing.")
         }
