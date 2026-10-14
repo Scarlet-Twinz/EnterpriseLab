@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 """Controlled attack suite for an isolated Enterprise Lab deployment."""
 from __future__ import annotations
 
@@ -49,7 +48,7 @@ def check(label: str, condition: bool, detail: str) -> bool:
         "name": label,
         "status": "PASS" if condition else "FAIL",
         "detail": detail,
-        "recorded_at": datetime.now(timezone.utc).isoformat(),
+        "recorded_at": datetime.now(UTC).isoformat(),
     })
     print(f'{"PASS" if condition else "FAIL"} | {label} | {detail}')
     return condition
@@ -58,7 +57,7 @@ def check(label: str, condition: bool, detail: str) -> bool:
 def write_report(started_at: str, failures: int) -> None:
     report_dir = Path("reports")
     report_dir.mkdir(parents=True, exist_ok=True)
-    completed_at = datetime.now(timezone.utc).isoformat()
+    completed_at = datetime.now(UTC).isoformat()
     report = {
         "suite": "enterprise-lab-attack-suite",
         "target": BASE_URL,
@@ -70,7 +69,7 @@ def write_report(started_at: str, failures: int) -> None:
         "results": RESULTS,
     }
     encoded = json.dumps(report, indent=2, sort_keys=True).encode("utf-8")
-    filename = f"attack-suite-{datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%SZ')}.json"
+    filename = f"attack-suite-{datetime.now(UTC).strftime('%Y%m%dT%H%M%SZ')}.json"
     report_path = report_dir / filename
     report_path.write_bytes(encoded)
     digest = hashlib.sha256(encoded).hexdigest()
@@ -80,7 +79,7 @@ def write_report(started_at: str, failures: int) -> None:
 
 
 def main() -> int:
-    started_at = datetime.now(timezone.utc).isoformat()
+    started_at = datetime.now(UTC).isoformat()
     if not KEY_A or not KEY_B:
         print("Set LAB_API_KEY_A and LAB_API_KEY_B to dedicated test API keys.", file=sys.stderr)
         return 2
