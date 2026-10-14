@@ -30,6 +30,8 @@ This matrix distinguishes tests that can run without a live database from tests 
 | Engine restart / connection reuse | Re-run tenant checks around restarts and reused sessions | No tenant-context leakage |
 | Control Plane outage | Stop management plane while Engine remains running | Local enforcement continues as designed |
 | PostgreSQL outage | Stop isolated upstream DB | Requests fail closed and recover without cross-tenant access |
+| Client TLS enforcement | Start Engine with server cert/key and `PROXIMA_TLS_REQUIRE_CLIENT=true`; attempt plaintext and TLS PostgreSQL negotiation | Plaintext is rejected; TLS succeeds with the Engine server certificate. This setting currently requires TLS encryption, not client-certificate authentication (mTLS) |
+| Upstream TLS verification | Configure PostgreSQL TLS with a test CA; run Engine in `verify-full` mode with valid and invalid CA/hostname combinations | Valid CA + matching hostname succeeds; invalid CA or hostname fails closed |
 | Monitoring | Compare generated traffic with available metrics/logs | Observations match actual requests and outcomes |
 | Control Plane integration | Read-only authenticated acceptance suite | Authenticated organization, tenant, policy, node, deployment, verification, audit, support, developer, and billing endpoints respond as expected |
 | Performance | Bounded API-through-Engine workload | Success/error counts and p50/p95/p99 latency recorded; no public SLA inferred |
