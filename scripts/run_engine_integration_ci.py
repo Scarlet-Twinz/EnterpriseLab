@@ -6,6 +6,7 @@ it to the isolated CI PostgreSQL service, and terminates only the child processe
 from __future__ import annotations
 
 import os
+import re
 import socket
 import subprocess
 import sys
@@ -25,7 +26,9 @@ def wait_for_enforcement(process: subprocess.Popen, log_path: Path, timeout_seco
             log_text = log_path.read_text(encoding="utf-8", errors="replace")
         except OSError:
             log_text = ""
-        normalized = log_text.replace(" ", "")
+        # Tracing's ANSI styling can split field names and values with escape
+        # sequences, so strip those before checking the explicit boolean field.
+        normalized = re.sub(r"\x1b\[[0-9;]*m", "", log_text).replace(" ", "")
         if "tenant_enforcement=false" in normalized:
             raise RuntimeError(
                 "Proxima Engine started with tenant enforcement disabled; refusing acceptance run."
