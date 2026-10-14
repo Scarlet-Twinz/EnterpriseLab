@@ -24,8 +24,8 @@ Administrative schema setup is separate and uses `LAB_ADMIN_DATABASE_URL` agains
 
 ## Quick start
 
-1. Copy `.env.example` to `.env` and replace the local-only passwords and signing key.
-2. Start the isolated upstream database: `docker compose up -d enterprise-db`. The schema, synthetic records, tenant roles, RLS policies, and limited Engine gateway role are initialized on the database's first startup.
+1. On Windows PowerShell, run `./scripts/setup.ps1` to generate local-only secrets and start the isolated database. Alternatively, copy `.env.example` to `.env` and replace its values.
+2. Start the isolated upstream database: `docker compose up -d enterprise-db` (the setup script does this automatically). The schema, synthetic records, tenant roles, RLS policies, and limited Engine gateway role are initialized on the database's first startup.
 3. Configure the real Proxima Engine in the Agata Proxima repository to use the upstream database at `127.0.0.1:55432`, database `enterprise_lab`, user `proxima_gateway`, and the `PROXIMA_GATEWAY_PASSWORD` value. Map signed tenant IDs `tenant_a`, `tenant_b`, and `tenant_c` to the matching PostgreSQL roles and configure the same `PROXIMA_SIGNING_KEY` value in the Engine. The gateway role is non-superuser and has membership in the tenant roles so the Engine can switch to the selected tenant role.
 4. Set `PROXIMA_DATABASE_URL` to the actual Engine listener (default example: `127.0.0.1:6432`), never to port 55432.
 5. Install and run:
