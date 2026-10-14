@@ -85,3 +85,16 @@ def test_metrics_endpoint_exposes_prometheus_format():
     assert response.status_code == 200
     assert "enterprise_lab_process_up 1" in response.text
     assert "# TYPE enterprise_lab_http_requests_total counter" in response.text
+
+
+
+def test_non_positive_token_lifetime_is_rejected(monkeypatch):
+    monkeypatch.setenv("PROXIMA_TENANT_SIGNING_KEY", "test-secret-that-is-long-enough-123456")
+    with pytest.raises(RuntimeError, match="between 1 and 3600"):
+        make_proxima_token("tenant_a", now=100, ttl_seconds=0)
+
+
+def test_token_lifetime_over_one_hour_is_rejected(monkeypatch):
+    monkeypatch.setenv("PROXIMA_TENANT_SIGNING_KEY", "test-secret-that-is-long-enough-123456")
+    with pytest.raises(RuntimeError, match="between 1 and 3600"):
+        make_proxima_token("tenant_a", now=100, ttl_seconds=3601)
