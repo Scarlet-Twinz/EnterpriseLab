@@ -100,19 +100,20 @@ def main() -> int:
                  "-keyout", str(rogue_key), "-out", str(rogue_ca), "-days", "2",
                  "-subj", "/CN=Untrusted Lab CA"])
 
-            # Create the container stopped so certs can be copied in and assigned to
-            # postgres before it starts enforcing private-key permissions.
+            # Mount a disposable certificate directory with PostgreSQL-compatible key ownership/mode.
+            run(["sudo", "chown", "999:999", str(server_key)])
+            run(["sudo", "chmod", "600", str(server_key)])
+            run(["sudo", "chown", "999:999", str(server_cert)])
+            run(["sudo", "chmod", "644", str(server_cert)])
             run(["docker", "create", "--name", db_container,
                  "-e", "POSTGRES_DB=enterprise_lab",
                  "-e", "POSTGRES_USER=lab_admin",
                  "-e", "POSTGRES_PASSWORD=ci-admin-password",
-                 "-p", "127.0.0.1:5544:5432", "postgres:16-alpine",
-                 "postgres", "-c", "ssl=on", "-c", "ssl_cert_file=/tmp/server.crt",
-                 "-c", "ssl_key_file=/tmp/server.key"])
-            run(["docker", "cp", str(server_cert), f"{db_container}:/tmp/server.crt"])
-            run(["docker", "cp", str(server_key), f"{db_container}:/tmp/server.key"])
-            run(["docker", "exec", db_container, "chown", "postgres:postgres", "/tmp/server.crt", "/tmp/server.key"])
-            run(["docker", "exec", db_container, "chmod", "600", "/tmp/server.key"])
+                 "-p", "127.0.0.1:5544:5432",
+                 "--mount", f"type=bind,source={tlsdir},target=/certs,readonly",
+                 "postgres:16-alpine", "postgres", "-c", "ssl=on",
+                 "-c", "ssl_cert_file=/certs/server.crt",
+                 "-c", "ssl_key_file=/certs/server.key"])
             run(["docker", "start", db_container])
             wait_port("127.0.0.1", 5544, 40)
 
