@@ -13,6 +13,7 @@ This matrix distinguishes tests that can run without a live database from tests 
 | Token input validation | Malformed tenant identifier | Rejected before a database connection |
 | Request validation | Client supplies tenant_id in business body | HTTP 422 |
 | Logging | Business request finishes | Request ID, method, path, status and duration; no secrets |
+| Monitoring | Scrape `/metrics` | Prometheus process, request-count, and duration metrics are exposed without tenant labels |
 
 ## Live tests (must target an isolated deployment)
 
