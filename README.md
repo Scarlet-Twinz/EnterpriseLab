@@ -6,6 +6,8 @@ The company simulator owns realistic business workflows and synthetic data. Its 
 
 ## First implementation
 
+Read the [simulated US customer profile](docs/COMPANY_PROFILE.md) for the business scenario and acceptance goals.
+
 - FastAPI business API for customers, employees, projects, invoices, and confidential documents.
 - PostgreSQL schema with tenant-specific roles and row-level security (RLS).
 - Server-side API-key identity mapping. The caller cannot choose the tenant context by sending a tenant header or body field.
