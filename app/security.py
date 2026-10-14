@@ -15,7 +15,11 @@ import time
 from dataclasses import dataclass
 from typing import Any
 
+from dotenv import load_dotenv
 from fastapi import Header, HTTPException
+
+# Load local .env for developer runs; deployed secrets should be injected by the platform.
+load_dotenv()
 
 _TENANT_RE = re.compile(r"^[a-z][a-z0-9_]{1,62}$")
 _ALLOWED_ROLES = {"admin", "operator", "viewer"}
