@@ -31,7 +31,12 @@ def wait_port(host: str, port: int, timeout: float = 20, env: dict[str, str] | N
         if probe.returncode == 0:
             return
         time.sleep(0.5)
-    raise RuntimeError(f"PostgreSQL at {host}:{port} did not become ready")
+    diagnostics = subprocess.run(["docker", "logs", "enterprise-lab-upstream-tls-postgres"],
+                                 capture_output=True, text=True, check=False)
+    raise RuntimeError(
+        f"PostgreSQL at {host}:{port} did not become ready. "
+        f"container stdout/stderr:\\n{diagnostics.stdout}\\n{diagnostics.stderr}"
+    )
 
 def wait_engine(process: subprocess.Popen, log: Path, port: int) -> None:
     deadline = time.monotonic() + 15
