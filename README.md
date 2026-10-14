@@ -66,9 +66,15 @@ Writes require the `admin` or `operator` role. The schema includes synthetic dat
 pytest -q
 python scripts/attack_suite.py
 python scripts/proxima_protocol_suite.py
+python scripts/control_plane_acceptance.py
+python scripts/performance_suite.py
 ```
 
-The protocol suite connects directly to the configured Proxima Engine listener and tests signed tenant context, cross-tenant reads, prepared statements, cross-tenant writes (always rolled back), expired tokens, and tampered signatures. It requires an isolated Engine/database environment and the correct signing key. Do not point it at production.
+The protocol suite connects directly to the configured Proxima Engine listener and tests role mapping, three-tenant reads, prepared statements, cross-tenant insert/update/delete, rollback, reconnect context, expired tokens, and tampered signatures. It requires an isolated Engine/database environment and the correct signing key. Do not point it at production.
+
+The Control Plane suite is read-only. Fill `AGATA_CONTROL_PLANE_URL`, `AGATA_LAB_EMAIL`, and `AGATA_LAB_PASSWORD` in the ignored local `.env` using a dedicated test account, then run it. It checks authentication and management endpoints without creating resources. Exit code 3 means the API checks completed but production readiness remains blocked.
+
+The performance suite defaults to 100 requests with 10 workers and permits local targets only. It records p50/p95/p99 latency and a SHA-256 checksum. Remote testing requires an explicit exact-target confirmation and must use a dedicated isolated environment. This bounded sample is not an SLA or a production capacity claim.
 
 The attack suite requires the API to be running and the sample API keys from your local `.env` (or equivalent environment variables) to be configured. It must only be pointed at the isolated Enterprise Lab test deployment.
 
