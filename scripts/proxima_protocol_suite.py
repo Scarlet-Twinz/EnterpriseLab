@@ -313,25 +313,30 @@ def main() -> int:
         # Send malformed traffic to the actual Engine listener. These are tiny,
         # bounded probes: no flood and no attempt to consume significant memory.
         invalid_length_packet = struct.pack("!i", 4) + b"\x00" * 4
+        malformed_closed = raw_probe_closes(invalid_length_packet)
         results.check(
             "malformed short startup frame closes connection",
-            raw_probe_closes(invalid_length_packet),
-            "Engine closed the malformed protocol connection",
+            malformed_closed,
+            "connection closed" if malformed_closed else "connection remained open until probe timeout",
         )
 
-        oversized_header = struct.pack("!i", 16 * 1024 * 1024 + 1)
+        # Send the full 8-byte initial probe because the Engine first distinguishes
+        # PostgreSQL SSLRequest packets before parsing the startup length.
+        oversized_header = struct.pack("!i", 16 * 1024 * 1024 + 1) + struct.pack("!i", 196608)
+        oversized_closed = raw_probe_closes(oversized_header)
         results.check(
             "oversized startup frame rejected before payload allocation",
-            raw_probe_closes(oversized_header),
-            "Engine closed the oversized protocol connection",
+            oversized_closed,
+            "connection closed" if oversized_closed else "connection remained open until probe timeout",
         )
 
         startup_body = struct.pack("!i", 196608) + b"user\x00proxima\x00database\x00enterprise_lab\x00\x00"
         missing_token_packet = struct.pack("!i", len(startup_body) + 4) + startup_body
+        missing_token_closed = raw_probe_closes(missing_token_packet)
         results.check(
             "valid-shaped startup without tenant token rejected",
-            raw_probe_closes(missing_token_packet),
-            "Engine closed startup missing required signed tenant context",
+            missing_token_closed,
+            "connection closed" if missing_token_closed else "connection remained open until probe timeout",
         )
 
     except (psycopg.Error, RuntimeError, ValueError, TypeError, OSError) as exc:
