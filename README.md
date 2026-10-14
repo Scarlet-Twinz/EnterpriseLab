@@ -10,6 +10,7 @@ The company simulator owns realistic business workflows and synthetic data. Its 
 - PostgreSQL schema with tenant-specific roles and row-level security (RLS).
 - Server-side API-key identity mapping. The caller cannot choose the tenant context by sending a tenant header or body field.
 - HMAC-signed Proxima tenant-context tokens passed through PostgreSQL startup options.
+- A Prometheus `/metrics` endpoint and request logs with request IDs and latency.
 - An adversarial test runner for cross-tenant access, forged identity attempts, invalid credentials, malformed requests, and controlled request bursts.
 - Explicit separation between administrative/bootstrap database access and application traffic through Proxima.
 
