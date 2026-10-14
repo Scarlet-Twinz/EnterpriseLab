@@ -5,14 +5,14 @@
 
 DO $$
 BEGIN
-    IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'tenant_a') THEN
-        CREATE ROLE tenant_a NOLOGIN;
+    IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'proxima_tenant_tenant_a') THEN
+        CREATE ROLE proxima_tenant_tenant_a NOLOGIN NOSUPERUSER NOBYPASSRLS;
     END IF;
-    IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'tenant_b') THEN
-        CREATE ROLE tenant_b NOLOGIN;
+    IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'proxima_tenant_tenant_b') THEN
+        CREATE ROLE proxima_tenant_tenant_b NOLOGIN NOSUPERUSER NOBYPASSRLS;
     END IF;
-    IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'tenant_c') THEN
-        CREATE ROLE tenant_c NOLOGIN;
+    IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'proxima_tenant_tenant_c') THEN
+        CREATE ROLE proxima_tenant_tenant_c NOLOGIN NOSUPERUSER NOBYPASSRLS;
     END IF;
 END
 $$;
@@ -86,32 +86,32 @@ ALTER TABLE documents FORCE ROW LEVEL SECURITY;
 
 DROP POLICY IF EXISTS customers_tenant_boundary ON customers;
 CREATE POLICY customers_tenant_boundary ON customers
-    USING (tenant_id = current_user)
-    WITH CHECK (tenant_id = current_user);
+    USING (current_user = 'proxima_tenant_' || tenant_id)
+    WITH CHECK (current_user = 'proxima_tenant_' || tenant_id);
 
 DROP POLICY IF EXISTS invoices_tenant_boundary ON invoices;
 CREATE POLICY invoices_tenant_boundary ON invoices
-    USING (tenant_id = current_user)
-    WITH CHECK (tenant_id = current_user);
+    USING (current_user = 'proxima_tenant_' || tenant_id)
+    WITH CHECK (current_user = 'proxima_tenant_' || tenant_id);
 
 DROP POLICY IF EXISTS employees_tenant_boundary ON employees;
 CREATE POLICY employees_tenant_boundary ON employees
-    USING (tenant_id = current_user)
-    WITH CHECK (tenant_id = current_user);
+    USING (current_user = 'proxima_tenant_' || tenant_id)
+    WITH CHECK (current_user = 'proxima_tenant_' || tenant_id);
 
 DROP POLICY IF EXISTS projects_tenant_boundary ON projects;
 CREATE POLICY projects_tenant_boundary ON projects
-    USING (tenant_id = current_user)
-    WITH CHECK (tenant_id = current_user);
+    USING (current_user = 'proxima_tenant_' || tenant_id)
+    WITH CHECK (current_user = 'proxima_tenant_' || tenant_id);
 
 DROP POLICY IF EXISTS documents_tenant_boundary ON documents;
 CREATE POLICY documents_tenant_boundary ON documents
-    USING (tenant_id = current_user)
-    WITH CHECK (tenant_id = current_user);
+    USING (current_user = 'proxima_tenant_' || tenant_id)
+    WITH CHECK (current_user = 'proxima_tenant_' || tenant_id);
 
-GRANT USAGE ON SCHEMA public TO tenant_a, tenant_b, tenant_c;
-GRANT SELECT, INSERT, UPDATE, DELETE ON customers, invoices, employees, projects, documents TO tenant_a, tenant_b, tenant_c;
-GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO tenant_a, tenant_b, tenant_c;
+GRANT USAGE ON SCHEMA public TO proxima_tenant_tenant_a, proxima_tenant_tenant_b, proxima_tenant_tenant_c;
+GRANT SELECT, INSERT, UPDATE, DELETE ON customers, invoices, employees, projects, documents TO proxima_tenant_tenant_a, proxima_tenant_tenant_b, proxima_tenant_tenant_c;
+GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO proxima_tenant_tenant_a, proxima_tenant_tenant_b, proxima_tenant_tenant_c;
 
 -- Synthetic records for proving tenant separation. These are fictional.
 INSERT INTO customers (tenant_id, name, email, status)
