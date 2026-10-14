@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import os
+import re
 import socket
 import subprocess
 import tempfile
@@ -53,7 +54,7 @@ def wait_engine(process: subprocess.Popen, log: Path, port: int) -> None:
     deadline = time.monotonic() + 10
     while time.monotonic() < deadline:
         text = log.read_text(encoding="utf-8", errors="replace") if log.exists() else ""
-        normalized = text.replace(" ", "")
+        normalized = re.sub(r"\x1b\[[0-9;]*m", "", text).replace(" ", "")
         if "tenant_enforcement=true" in normalized:
             return
         if process.poll() is not None:
