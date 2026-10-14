@@ -32,7 +32,15 @@ app = FastAPI(
 
 PrincipalDep = Annotated[Principal, Depends(authenticate)]
 Name = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=160)]
-Email = Annotated[str, StringConstraints(strip_whitespace=True, min_length=3, max_length=254)]
+Email = Annotated[
+    str,
+    StringConstraints(
+        strip_whitespace=True,
+        min_length=3,
+        max_length=254,
+        pattern=r"^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$",
+    ),
+]
 
 
 class StrictModel(BaseModel):
