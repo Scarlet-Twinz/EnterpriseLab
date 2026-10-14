@@ -45,7 +45,7 @@ def make_token(tenant: str, *, ttl: int = 300, tamper: bool = False) -> str:
     return f"{payload}.{signature}"
 
 
-def connect(token: str, tenant: str = "tenant_a"):
+def connect(token: str, tenant: str = "northstar"):
     dsn = os.getenv("PROXIMA_DATABASE_URL", "").strip()
     if not dsn:
         raise RuntimeError("PROXIMA_DATABASE_URL must point to the real Proxima Engine listener")
@@ -66,25 +66,25 @@ def connect(token: str, tenant: str = "tenant_a"):
 def main() -> int:
     results = Results()
     try:
-        token_a = make_token("tenant_a")
+        token_a = make_token("northstar")
         with connect(token_a) as conn, conn.cursor() as cur:
-            cur.execute("SELECT count(*) FROM customers WHERE tenant_id = %s", ("tenant_a",))
+            cur.execute("SELECT count(*) FROM customers WHERE tenant_id = %s", ("northstar",))
             own_count = cur.fetchone()[0]
             results.check("tenant A reads its own records", own_count >= 1, f"visible rows={own_count}")
             cur.execute("SELECT current_user")
             current_role = cur.fetchone()[0]
             results.check(
                 "signed tenant A selects the expected PostgreSQL role",
-                current_role == "proxima_tenant_tenant_a",
+                current_role == "proxima_tenant_northstar",
                 f"current_user={current_role}",
             )
 
-            cur.execute("SELECT count(*) FROM customers WHERE tenant_id = %s", ("tenant_b",))
+            cur.execute("SELECT count(*) FROM customers WHERE tenant_id = %s", ("bluehaven",))
             cross_count = cur.fetchone()[0]
             results.check("tenant A cannot read tenant B records", cross_count == 0, f"visible rows={cross_count}")
 
             cur.execute("PREPARE elab_cross_read(text) AS SELECT count(*) FROM customers WHERE tenant_id = $1")
-            cur.execute("EXECUTE elab_cross_read('tenant_b')")
+            cur.execute("EXECUTE elab_cross_read('bluehaven')")
             prepared_count = cur.fetchone()[0]
             results.check(
                 "prepared statement cannot cross tenant boundary",
@@ -93,13 +93,13 @@ def main() -> int:
             )
             cur.execute("DEALLOCATE elab_cross_read")
 
-            cur.execute("UPDATE customers SET status = 'suspended' WHERE tenant_id = %s", ("tenant_b",))
+            cur.execute("UPDATE customers SET status = 'suspended' WHERE tenant_id = %s", ("bluehaven",))
             results.check(
                 "tenant A cannot update tenant B records",
                 cur.rowcount == 0,
                 f"affected rows={cur.rowcount}",
             )
-            cur.execute("DELETE FROM customers WHERE tenant_id = %s", ("tenant_b",))
+            cur.execute("DELETE FROM customers WHERE tenant_id = %s", ("bluehaven",))
             results.check(
                 "tenant A cannot delete tenant B records",
                 cur.rowcount == 0,
@@ -109,7 +109,7 @@ def main() -> int:
             cur.execute("SAVEPOINT rollback_probe")
             cur.execute(
                 """INSERT INTO customers (tenant_id, name, email, status)
-                   VALUES ('tenant_a', 'ROLLBACK-ONLY PROBE', %s, 'active')""",
+                   VALUES ('northstar', 'ROLLBACK-ONLY PROBE', %s, 'active')""",
                 (f"rollback-probe-own-{time.time_ns()}@example.test",),
             )
             cur.execute("ROLLBACK TO SAVEPOINT rollback_probe")
@@ -128,7 +128,7 @@ def main() -> int:
             try:
                 cur.execute(
                     """INSERT INTO customers (tenant_id, name, email, status)
-                       VALUES ('tenant_b', 'ROLLBACK-ONLY SECURITY PROBE',
+                       VALUES ('bluehaven', 'ROLLBACK-ONLY SECURITY PROBE',
                                %s, 'active')""",
                     (f"rollback-probe-{time.time_ns()}@example.test",),
                 )
@@ -148,8 +148,8 @@ def main() -> int:
         # Open fresh connections as tenants B and C, then reconnect as A. The
         # selected PostgreSQL role must follow each signed startup token.
         for tenant, other_tenants in (
-            ("tenant_b", ("tenant_a", "tenant_c")),
-            ("tenant_c", ("tenant_a", "tenant_b")),
+            ("bluehaven", ("northstar", "cedarstone")),
+            ("cedarstone", ("northstar", "bluehaven")),
         ):
             token = make_token(tenant)
             with connect(token, tenant) as conn, conn.cursor() as cur:
@@ -176,20 +176,20 @@ def main() -> int:
                         f"visible rows={cross_count}",
                     )
 
-        token_a_again = make_token("tenant_a")
-        with connect(token_a_again, "tenant_a") as conn, conn.cursor() as cur:
+        token_a_again = make_token("northstar")
+        with connect(token_a_again, "northstar") as conn, conn.cursor() as cur:
             cur.execute("SELECT current_user")
             current_role = cur.fetchone()[0]
             results.check(
                 "reconnecting as tenant A restores tenant A context",
-                current_role == "proxima_tenant_tenant_a",
+                current_role == "proxima_tenant_northstar",
                 f"current_user={current_role}",
             )
 
         # A valid signature with an expired timestamp must be rejected by the Engine.
         for label, token in (
-            ("expired tenant context rejected", make_token("tenant_a", ttl=-60)),
-            ("tampered tenant signature rejected", make_token("tenant_a", tamper=True)),
+            ("expired tenant context rejected", make_token("northstar", ttl=-60)),
+            ("tampered tenant signature rejected", make_token("northstar", tamper=True)),
         ):
             rejected = False
             try:
