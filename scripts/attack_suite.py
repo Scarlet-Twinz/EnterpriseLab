@@ -23,11 +23,20 @@ KEY_C = os.getenv("LAB_API_KEY_C", "")
 RESULTS: list[dict[str, object]] = []
 
 
-def request(method: str, path: str, *, key: str | None = None, payload: object | None = None):
+def request(
+    method: str,
+    path: str,
+    *,
+    key: str | None = None,
+    payload: object | None = None,
+    extra_headers: dict[str, str] | None = None,
+):
     body = None if payload is None else json.dumps(payload).encode()
     headers = {"Content-Type": "application/json", "X-Request-ID": f"enterprise-lab-{time.time_ns()}"}
     if key:
         headers["Authorization"] = f"Bearer {key}"
+    if extra_headers:
+        headers.update(extra_headers)
     req = Request(f"{BASE_URL}{path}", data=body, headers=headers, method=method)
     try:
         with urlopen(req, timeout=8) as response:
@@ -103,6 +112,28 @@ def main() -> int:
         else False
     )
     failures += not check("test identities are distinct", distinct, "server-side key mapping checked")
+
+    status, forged_identity = request(
+        "GET", "/api/v1/me", key=KEY_A,
+        extra_headers={"X-Lab-Tenant": "bluehaven", "X-Tenant-ID": "bluehaven"},
+    )
+    failures += not check(
+        "forged tenant headers cannot switch identity",
+        status == 200 and isinstance(forged_identity, dict)
+        and forged_identity.get("tenant_id") == identity_a.get("tenant_id"),
+        f"HTTP {status}; identity remains server-side mapped",
+    )
+
+    # Injection-shaped path input must be rejected by typed routing rather than
+    # interpreted as SQL. This is a bounded validation probe, not an exploit.
+    injection_status, _ = request(
+        "GET", "/api/v1/customers/1%20OR%201%3D1", key=KEY_A,
+    )
+    failures += not check(
+        "SQL-injection-shaped record identifier rejected",
+        injection_status in (404, 422),
+        f"HTTP {injection_status}",
+    )
 
     # Create a unique tenant-B customer, then attempt to read it using tenant A's identity.
     marker = f"ELAB-CROSS-TENANT-{time.time_ns()}"
