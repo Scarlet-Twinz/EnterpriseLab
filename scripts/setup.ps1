@@ -44,6 +44,7 @@ LAB_ADMIN_DATABASE_URL=postgresql://lab_admin:$adminPassword@127.0.0.1:55432/ent
 LAB_BASE_URL=http://127.0.0.1:8088
 LAB_API_KEY_A=$keyA
 LAB_API_KEY_B=$keyB
+LAB_API_KEY_C=$keyC
 "@
 
 $utf8NoBom = New-Object System.Text.UTF8Encoding($false)
