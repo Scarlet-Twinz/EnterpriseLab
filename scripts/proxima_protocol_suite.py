@@ -145,6 +145,47 @@ def main() -> int:
                 "RLS rejected the cross-tenant insert" if write_blocked else "insert was unexpectedly allowed (rolled back)",
             )
 
+        # Open fresh connections as tenants B and C, then reconnect as A. The
+        # selected PostgreSQL role must follow each signed startup token.
+        for tenant, other_tenants in (
+            ("tenant_b", ("tenant_a", "tenant_c")),
+            ("tenant_c", ("tenant_a", "tenant_b")),
+        ):
+            token = make_token(tenant)
+            with connect(token, tenant) as conn, conn.cursor() as cur:
+                cur.execute("SELECT current_user")
+                current_role = cur.fetchone()[0]
+                results.check(
+                    f"{tenant} selects its expected PostgreSQL role",
+                    current_role == f"proxima_tenant_{tenant}",
+                    f"current_user={current_role}",
+                )
+                cur.execute("SELECT count(*) FROM customers WHERE tenant_id = %s", (tenant,))
+                own_count = cur.fetchone()[0]
+                results.check(
+                    f"{tenant} reads its own records",
+                    own_count >= 1,
+                    f"visible rows={own_count}",
+                )
+                for other_tenant in other_tenants:
+                    cur.execute("SELECT count(*) FROM customers WHERE tenant_id = %s", (other_tenant,))
+                    cross_count = cur.fetchone()[0]
+                    results.check(
+                        f"{tenant} cannot read {other_tenant} records",
+                        cross_count == 0,
+                        f"visible rows={cross_count}",
+                    )
+
+        token_a_again = make_token("tenant_a")
+        with connect(token_a_again, "tenant_a") as conn, conn.cursor() as cur:
+            cur.execute("SELECT current_user")
+            current_role = cur.fetchone()[0]
+            results.check(
+                "reconnecting as tenant A restores tenant A context",
+                current_role == "proxima_tenant_tenant_a",
+                f"current_user={current_role}",
+            )
+
         # A valid signature with an expired timestamp must be rejected by the Engine.
         for label, token in (
             ("expired tenant context rejected", make_token("tenant_a", ttl=-60)),
