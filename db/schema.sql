@@ -1,18 +1,18 @@
 -- Run only against a disposable Enterprise Lab upstream PostgreSQL database
 -- using a database administrator. Application traffic must use Proxima Engine.
--- The Engine's default role prefix maps tenant_a/b/c to proxima_tenant_tenant_a/b/c.
+-- The Engine's default role prefix maps northstar/b/c to proxima_tenant_northstar/b/c.
 \set ON_ERROR_STOP on
 
 DO $$
 BEGIN
-    IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'proxima_tenant_tenant_a') THEN
-        CREATE ROLE proxima_tenant_tenant_a NOLOGIN NOSUPERUSER NOBYPASSRLS;
+    IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'proxima_tenant_northstar') THEN
+        CREATE ROLE proxima_tenant_northstar NOLOGIN NOSUPERUSER NOBYPASSRLS;
     END IF;
-    IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'proxima_tenant_tenant_b') THEN
-        CREATE ROLE proxima_tenant_tenant_b NOLOGIN NOSUPERUSER NOBYPASSRLS;
+    IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'proxima_tenant_bluehaven') THEN
+        CREATE ROLE proxima_tenant_bluehaven NOLOGIN NOSUPERUSER NOBYPASSRLS;
     END IF;
-    IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'proxima_tenant_tenant_c') THEN
-        CREATE ROLE proxima_tenant_tenant_c NOLOGIN NOSUPERUSER NOBYPASSRLS;
+    IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'proxima_tenant_cedarstone') THEN
+        CREATE ROLE proxima_tenant_cedarstone NOLOGIN NOSUPERUSER NOBYPASSRLS;
     END IF;
 END
 $$;
@@ -83,49 +83,49 @@ ALTER TABLE projects FORCE ROW LEVEL SECURITY;
 ALTER TABLE documents ENABLE ROW LEVEL SECURITY;
 ALTER TABLE documents FORCE ROW LEVEL SECURITY;
 
-DROP POLICY IF EXISTS customers_tenant_boundary ON customers;
-CREATE POLICY customers_tenant_boundary ON customers
+DROP POLICY IF EXISTS customers_bluehavenoundary ON customers;
+CREATE POLICY customers_bluehavenoundary ON customers
     USING (current_user = 'proxima_tenant_' || tenant_id)
     WITH CHECK (current_user = 'proxima_tenant_' || tenant_id);
 
-DROP POLICY IF EXISTS invoices_tenant_boundary ON invoices;
-CREATE POLICY invoices_tenant_boundary ON invoices
+DROP POLICY IF EXISTS invoices_bluehavenoundary ON invoices;
+CREATE POLICY invoices_bluehavenoundary ON invoices
     USING (current_user = 'proxima_tenant_' || tenant_id)
     WITH CHECK (current_user = 'proxima_tenant_' || tenant_id);
 
-DROP POLICY IF EXISTS employees_tenant_boundary ON employees;
-CREATE POLICY employees_tenant_boundary ON employees
+DROP POLICY IF EXISTS employees_bluehavenoundary ON employees;
+CREATE POLICY employees_bluehavenoundary ON employees
     USING (current_user = 'proxima_tenant_' || tenant_id)
     WITH CHECK (current_user = 'proxima_tenant_' || tenant_id);
 
-DROP POLICY IF EXISTS projects_tenant_boundary ON projects;
-CREATE POLICY projects_tenant_boundary ON projects
+DROP POLICY IF EXISTS projects_bluehavenoundary ON projects;
+CREATE POLICY projects_bluehavenoundary ON projects
     USING (current_user = 'proxima_tenant_' || tenant_id)
     WITH CHECK (current_user = 'proxima_tenant_' || tenant_id);
 
-DROP POLICY IF EXISTS documents_tenant_boundary ON documents;
-CREATE POLICY documents_tenant_boundary ON documents
+DROP POLICY IF EXISTS documents_bluehavenoundary ON documents;
+CREATE POLICY documents_bluehavenoundary ON documents
     USING (current_user = 'proxima_tenant_' || tenant_id)
     WITH CHECK (current_user = 'proxima_tenant_' || tenant_id);
 
-GRANT USAGE ON SCHEMA public TO proxima_tenant_tenant_a, proxima_tenant_tenant_b, proxima_tenant_tenant_c;
-GRANT SELECT, INSERT, UPDATE, DELETE ON customers, invoices, employees, projects, documents TO proxima_tenant_tenant_a, proxima_tenant_tenant_b, proxima_tenant_tenant_c;
-GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO proxima_tenant_tenant_a, proxima_tenant_tenant_b, proxima_tenant_tenant_c;
+GRANT USAGE ON SCHEMA public TO proxima_tenant_northstar, proxima_tenant_bluehaven, proxima_tenant_cedarstone;
+GRANT SELECT, INSERT, UPDATE, DELETE ON customers, invoices, employees, projects, documents TO proxima_tenant_northstar, proxima_tenant_bluehaven, proxima_tenant_cedarstone;
+GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO proxima_tenant_northstar, proxima_tenant_bluehaven, proxima_tenant_cedarstone;
 
 -- Synthetic records for proving tenant separation. These are fictional.
 INSERT INTO customers (tenant_id, name, email, status)
 VALUES
-    ('tenant_a', 'Northstar Operations Ltd', 'finance@northstar.example', 'active'),
-    ('tenant_b', 'Bluehaven Logistics Ltd', 'accounts@bluehaven.example', 'active'),
-    ('tenant_c', 'Cedarstone Health Systems', 'security@cedarstone.example', 'active')
+    ('northstar', 'Northstar Operations Ltd', 'finance@northstar.example', 'active'),
+    ('bluehaven', 'Bluehaven Logistics Ltd', 'accounts@bluehaven.example', 'active'),
+    ('cedarstone', 'Cedarstone Health Systems', 'security@cedarstone.example', 'active')
 ON CONFLICT (tenant_id, email) DO NOTHING;
 
 INSERT INTO invoices (tenant_id, customer_id, amount_cents, currency, description, status)
 SELECT c.tenant_id, c.id, seed.amount_cents, 'USD', seed.description, seed.status
 FROM (VALUES
-    ('tenant_a', 'finance@northstar.example', 125000, 'Quarterly advisory retainer', 'issued'),
-    ('tenant_b', 'accounts@bluehaven.example', 289900, 'Warehouse systems support', 'draft'),
-    ('tenant_c', 'security@cedarstone.example', 76000, 'Records governance review', 'paid')
+    ('northstar', 'finance@northstar.example', 125000, 'Quarterly advisory retainer', 'issued'),
+    ('bluehaven', 'accounts@bluehaven.example', 289900, 'Warehouse systems support', 'draft'),
+    ('cedarstone', 'security@cedarstone.example', 76000, 'Records governance review', 'paid')
 ) AS seed(tenant_id, customer_email, amount_cents, description, status)
 JOIN customers c ON c.tenant_id = seed.tenant_id AND c.email = seed.customer_email
 WHERE NOT EXISTS (
@@ -135,17 +135,17 @@ WHERE NOT EXISTS (
 
 INSERT INTO employees (tenant_id, name, email, department, job_title, status)
 VALUES
-    ('tenant_a', 'Maya Okafor', 'maya.okafor@northstar.example', 'Finance', 'Finance Manager', 'active'),
-    ('tenant_b', 'Daniel Mensah', 'daniel.mensah@bluehaven.example', 'Operations', 'Operations Lead', 'active'),
-    ('tenant_c', 'Amina Bello', 'amina.bello@cedarstone.example', 'Compliance', 'Compliance Officer', 'active')
+    ('northstar', 'Maya Okafor', 'maya.okafor@northstar.example', 'Finance', 'Finance Manager', 'active'),
+    ('bluehaven', 'Daniel Mensah', 'daniel.mensah@bluehaven.example', 'Operations', 'Operations Lead', 'active'),
+    ('cedarstone', 'Amina Bello', 'amina.bello@cedarstone.example', 'Compliance', 'Compliance Officer', 'active')
 ON CONFLICT (tenant_id, email) DO NOTHING;
 
 INSERT INTO projects (tenant_id, name, description, budget_cents, status)
 SELECT seed.tenant_id, seed.name, seed.description, seed.budget_cents, seed.status
 FROM (VALUES
-    ('tenant_a', 'Quarterly Close', 'Synthetic financial close workflow.', 1250000, 'active'),
-    ('tenant_b', 'Warehouse Modernization', 'Synthetic inventory and warehouse workflow.', 4800000, 'planned'),
-    ('tenant_c', 'Records Governance', 'Synthetic compliance and records workflow.', 2200000, 'active')
+    ('northstar', 'Quarterly Close', 'Synthetic financial close workflow.', 1250000, 'active'),
+    ('bluehaven', 'Warehouse Modernization', 'Synthetic inventory and warehouse workflow.', 4800000, 'planned'),
+    ('cedarstone', 'Records Governance', 'Synthetic compliance and records workflow.', 2200000, 'active')
 ) AS seed(tenant_id, name, description, budget_cents, status)
 WHERE NOT EXISTS (
     SELECT 1 FROM projects p
@@ -155,9 +155,9 @@ WHERE NOT EXISTS (
 INSERT INTO documents (tenant_id, title, classification, body)
 SELECT seed.tenant_id, seed.title, seed.classification, seed.body
 FROM (VALUES
-    ('tenant_a', 'Quarterly Finance Summary', 'confidential', 'Synthetic finance data for tenant A.'),
-    ('tenant_b', 'Warehouse Access Procedures', 'restricted', 'Synthetic logistics procedures for tenant B.'),
-    ('tenant_c', 'Records Handling Policy', 'restricted', 'Synthetic health-sector policy data for tenant C.')
+    ('northstar', 'Quarterly Finance Summary', 'confidential', 'Synthetic finance data for tenant A.'),
+    ('bluehaven', 'Warehouse Access Procedures', 'restricted', 'Synthetic logistics procedures for tenant B.'),
+    ('cedarstone', 'Records Handling Policy', 'restricted', 'Synthetic health-sector policy data for tenant C.')
 ) AS seed(tenant_id, title, classification, body)
 WHERE NOT EXISTS (
     SELECT 1 FROM documents d
