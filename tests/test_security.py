@@ -76,3 +76,12 @@ def test_viewer_cannot_create_business_records(monkeypatch):
         json={"name": "Attempted Admin", "email": "nope@example.test"},
     )
     assert response.status_code == 403
+
+
+
+def test_metrics_endpoint_exposes_prometheus_format():
+    client = TestClient(app)
+    response = client.get("/metrics")
+    assert response.status_code == 200
+    assert "enterprise_lab_process_up 1" in response.text
+    assert "# TYPE enterprise_lab_http_requests_total counter" in response.text
