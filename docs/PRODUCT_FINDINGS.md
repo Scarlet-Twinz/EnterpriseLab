@@ -52,3 +52,17 @@ The read-only harness in `scripts/control_plane_acceptance.py` avoids guessing m
 - These findings are not proof that the underlying Engine isolation mechanism is broken.
 - A missing test result is **not verified**, not a pass.
 - Enterprise Lab remains a separate repository. Fixes to Agata Proxima, if needed, must be proposed and reviewed there independently.
+
+## Finding 6 — Dream PDF pillars are not all evidenced by the current Engine
+
+**Severity: High for claims made to enterprise customers**  
+**Status: Source inspection; Monitor is partial, Breaker and Attest are not verified**
+
+The supplied dream PDF defines four distinct capabilities: Engine, Monitor, Breaker, and Attest. I compared those requirements with the current Agata Proxima Engine source without changing the product repository.
+
+- **Engine — partially verified in the isolated lab.** The real Engine is built from the separate product repository and live tests verify signed tenant context, role selection, and PostgreSQL RLS behavior. This does not constitute a production deployment acceptance.
+- **Monitor — partial runtime visibility, not the full PDF specification.** The Engine has structured tracing logs and a local dashboard with `/health` and `/api/status`. The inspected Engine dependency manifest does not include a Prometheus exporter, and the dashboard handler does not expose the PDF's described Prometheus `/metrics` counters for active sessions, latency, and blocked attempts. Do not claim those specific metrics have been verified.
+- **Breaker — not verified / not evidenced by inspected source.** The Engine has a maximum-connection semaphore and logs connection failures, but the inspected configuration and connection loop do not implement the dream PDF's `PROXIMA_SECURITY_BREAKER=fail-closed` policy, per-endpoint attack tracking, circuit state, or an intrusion event forwarded to the Control Plane. A connection limit alone is not equivalent to that breaker.
+- **Attest — not verified / not evidenced by inspected source.** The inspected Engine workspace has no identified hourly signed state-ledger implementation or PDF attestation generation path. The SHA-256 checksum attached to an Enterprise Lab test artifact is a lab evidence checksum, not a Proxima Attest compliance certificate and not proof of SOC 2, HIPAA, or FedRAMP compliance.
+
+These are source-inspection conclusions about what was inspected, not runtime attack findings. The next step is to add explicit acceptance criteria and test only the capabilities that exist; missing product capabilities remain clearly marked not verified. Any product implementation work belongs in a separately reviewed Agata Proxima change, not in Enterprise Lab.
