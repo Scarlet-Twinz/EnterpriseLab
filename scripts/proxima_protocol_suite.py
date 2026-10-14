@@ -75,7 +75,7 @@ def main() -> int:
             current_role = cur.fetchone()[0]
             results.check(
                 "signed tenant A selects the expected PostgreSQL role",
-                current_role == "proxima_tenant_northstar",
+                current_role == "labrole_northstar",
                 f"current_user={current_role}",
             )
 
@@ -182,7 +182,7 @@ def main() -> int:
             current_role = cur.fetchone()[0]
             results.check(
                 "reconnecting as tenant A restores tenant A context",
-                current_role == "proxima_tenant_northstar",
+                current_role == "labrole_northstar",
                 f"current_user={current_role}",
             )
 
