@@ -31,6 +31,8 @@ This matrix distinguishes tests that can run without a live database from tests 
 | Control Plane outage | Stop management plane while Engine remains running | Local enforcement continues as designed |
 | PostgreSQL outage | Stop isolated upstream DB | Requests fail closed and recover without cross-tenant access |
 | Monitoring | Compare generated traffic with available metrics/logs | Observations match actual requests and outcomes |
+| Control Plane integration | Read-only authenticated acceptance suite | Authenticated organization, tenant, policy, node, deployment, verification, audit, support, developer, and billing endpoints respond as expected |
+| Performance | Bounded API-through-Engine workload | Success/error counts and p50/p95/p99 latency recorded; no public SLA inferred |
 | Attestation | Verify signed evidence and tamper detection if implemented | Verification result matches the actual attestation contract |
 | Load | Bounded concurrent read workload, then staged load ramps | Latency/error results captured; no isolation regression |
 
@@ -40,3 +42,4 @@ This matrix distinguishes tests that can run without a live database from tests 
 - The initial concurrency scenario is bounded (8 workers, 32 read requests); it is not a denial-of-service test.
 - A passing API-level test alone does not prove database isolation. At least one live test must traverse the real Engine and validate the actual protected data.
 - Any feature not available in the deployed build is reported as **not verified**, not passed.
+- Source-inspection risks and documentation discrepancies are recorded in [PRODUCT_FINDINGS.md](PRODUCT_FINDINGS.md); they are not silently treated as runtime failures or passes.
