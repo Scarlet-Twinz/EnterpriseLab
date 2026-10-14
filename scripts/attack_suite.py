@@ -123,6 +123,67 @@ def main() -> int:
             f"HTTP {cross_status}",
         )
 
+        # Exercise the other business tables using tenant B data, then check it is
+        # absent from tenant A's API responses. All data is synthetic.
+        suffix = time.time_ns()
+        business_cases = [
+            (
+                "employee",
+                "/api/v1/employees",
+                {
+                    "name": f"{marker} Employee",
+                    "email": f"employee-{suffix}@example.test",
+                    "department": "Operations",
+                    "job_title": "Analyst",
+                    "status": "active",
+                },
+                f"{marker} Employee",
+            ),
+            (
+                "project",
+                "/api/v1/projects",
+                {
+                    "name": f"{marker} Project",
+                    "description": "Synthetic tenant-isolation test project",
+                    "budget_cents": 100000,
+                    "status": "active",
+                },
+                f"{marker} Project",
+            ),
+            (
+                "document",
+                "/api/v1/documents",
+                {
+                    "title": f"{marker} Document",
+                    "classification": "confidential",
+                    "body": f"{marker} synthetic confidential test body",
+                },
+                f"{marker} Document",
+            ),
+            (
+                "invoice",
+                "/api/v1/invoices",
+                {
+                    "customer_id": record_id,
+                    "amount_cents": 10000,
+                    "currency": "USD",
+                    "description": f"{marker} Invoice",
+                },
+                f"{marker} Invoice",
+            ),
+        ]
+        for label, path, payload, marker_text in business_cases:
+            create_status, _ = request("POST", path, key=KEY_B, payload=payload)
+            failures += not check(f"tenant B can create synthetic {label}", create_status == 201, f"HTTP {create_status}")
+            if create_status == 201:
+                list_status, records = request("GET", path, key=KEY_A)
+                leaked = marker_text in json.dumps(records, sort_keys=True)
+                failures += not check(
+                    f"tenant A cannot list tenant B {label}",
+                    list_status == 200 and not leaked,
+                    f"HTTP {list_status}; marker_visible={leaked}",
+                )
+
     # Attempt to smuggle a tenant ID into a strict request body.
     status, _ = request(
         "POST", "/api/v1/customers", key=KEY_A,
