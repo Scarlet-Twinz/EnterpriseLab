@@ -19,11 +19,12 @@ This matrix distinguishes tests that can run without a live database from tests 
 
 | Area | Test | Pass condition |
 |---|---|---|
-| Proxima connection path | Application connects through Engine endpoint | Real Engine accepts valid signed tenant context |
-| Tenant A/B isolation | Tenant B creates a record; tenant A requests its ID | A receives no record (normally 404/403) |
+| Proxima connection path | Application connects through Engine endpoint | Real Engine accepts valid signed tenant context and selects the expected prefixed PostgreSQL role |
+| Tenant A/B isolation | Tenant B creates a record in each business table; tenant A requests or lists data | A receives no record (normally 404/403 or a list without the synthetic marker) |
 | Tenant-local access | Owning tenant reads its own record | Successful response |
 | RLS enforcement | Repeat isolation tests against actual PostgreSQL RLS | Protected row remains inaccessible |
-| Writes | Insert/update/delete through Engine | Only authorized tenant rows change |
+| Writes | Cross-tenant INSERT, UPDATE, DELETE through Engine | INSERT is rejected by RLS; UPDATE and DELETE affect zero protected rows |
+| Transaction lifecycle | Insert synthetic own-tenant probe then roll back | Probe row is absent after rollback |
 | Prepared statements / transactions | Add database-level integration scenarios | Isolation persists across statement and transaction lifecycles |
 | Invalid/expired tenant context | Supply invalid and expired signed context in dedicated integration harness | Engine rejects before query execution |
 | Engine restart / connection reuse | Re-run tenant checks around restarts and reused sessions | No tenant-context leakage |
