@@ -11,6 +11,7 @@ import re
 import socket
 import subprocess
 import sys
+import tempfile
 import time
 import urllib.error
 import urllib.request
@@ -111,6 +112,7 @@ def main() -> int:
     engine = None
     api = None
     outage_engine = None
+    tls_engine = None
 
     try:
         with engine_log.open("w", encoding="utf-8") as log:
@@ -286,6 +288,102 @@ def main() -> int:
             print_log(outage_log)
             return 1
 
+        # Validate client TLS termination and plaintext rejection with a
+        # disposable self-signed certificate. Private key material stays in /tmp
+        # and is never included in the uploaded evidence artifact.
+        with tempfile.TemporaryDirectory(prefix="proxima-tls-acceptance-") as tls_tmp:
+            tls_dir = Path(tls_tmp)
+            tls_cert = tls_dir / "engine.crt"
+            tls_key = tls_dir / "engine.key"
+            subprocess.run(
+                [
+                    "openssl", "req", "-x509", "-newkey", "rsa:2048", "-nodes",
+                    "-keyout", str(tls_key), "-out", str(tls_cert), "-days", "1",
+                    "-subj", "/CN=localhost",
+                    "-addext", "subjectAltName=DNS:localhost,IP:127.0.0.1",
+                ],
+                check=True,
+                capture_output=True,
+                text=True,
+                timeout=30,
+            )
+            tls_log = report_dir / "proxima-engine-client-tls.log"
+            tls_env = os.environ.copy()
+            tls_env.update({
+                "PROXIMA_LISTEN_ADDR": "127.0.0.1:6434",
+                "PROXIMA_UPSTREAM_ADDR": "127.0.0.1:5432",
+                "PROXIMA_TENANT_ROLE_PREFIX": "labrole_",
+                "PROXIMA_TENANT_SIGNING_KEY": os.environ["PROXIMA_TENANT_SIGNING_KEY"],
+                "PROXIMA_TLS_CERT_FILE": str(tls_cert),
+                "PROXIMA_TLS_KEY_FILE": str(tls_key),
+                "PROXIMA_TLS_REQUIRE_CLIENT": "true",
+                "PROXIMA_UPSTREAM_TLS_MODE": "disable",
+                "PROXIMA_DASHBOARD_ENABLED": "false",
+                "PROXIMA_DASHBOARD_LISTEN_ADDR": "127.0.0.1:9082",
+            })
+            with tls_log.open("w", encoding="utf-8") as log:
+                tls_engine = subprocess.Popen(
+                    [str(engine_binary)],
+                    cwd=engine_binary.parent.parent.parent,
+                    env=tls_env,
+                    stdout=log,
+                    stderr=subprocess.STDOUT,
+                    start_new_session=True,
+                )
+
+            tls_deadline = time.monotonic() + 10
+            tls_listener_ready = False
+            while time.monotonic() < tls_deadline:
+                if tls_engine.poll() is not None:
+                    raise RuntimeError(f"TLS-test Engine exited early; see {tls_log}")
+                try:
+                    with socket.create_connection(("127.0.0.1", 6434), timeout=0.5):
+                        tls_listener_ready = True
+                        break
+                except OSError:
+                    time.sleep(0.2)
+            if not tls_listener_ready:
+                raise RuntimeError(f"TLS-test Engine did not listen on 127.0.0.1:6434; see {tls_log}")
+            wait_for_enforcement(tls_engine, tls_log)
+
+            tenant_token = make_proxima_token("northstar")
+            plain_conninfo = make_conninfo(
+                "postgresql://proxima@127.0.0.1:6434/enterprise_lab?sslmode=disable",
+                user="proxima",
+                password=tenant_passwords["northstar"],
+                options=f"-c proxima_tenant_token={tenant_token}",
+                connect_timeout=4,
+            )
+            plaintext_rejected = False
+            try:
+                with psycopg.connect(plain_conninfo):
+                    pass
+            except psycopg.Error:
+                plaintext_rejected = True
+            if plaintext_rejected:
+                print("PASS | required client TLS rejects plaintext PostgreSQL connections")
+            else:
+                print("FAIL | required client TLS accepted a plaintext connection", file=sys.stderr)
+                return 1
+
+            tls_conninfo = make_conninfo(
+                "postgresql://proxima@127.0.0.1:6434/enterprise_lab?sslmode=require",
+                user="proxima",
+                password=tenant_passwords["northstar"],
+                options=f"-c proxima_tenant_token={tenant_token}",
+                connect_timeout=5,
+            )
+            with psycopg.connect(tls_conninfo) as tls_conn, tls_conn.cursor() as tls_cur:
+                tls_cur.execute("SELECT current_user, count(*) FROM customers WHERE tenant_id = %s GROUP BY current_user", ("northstar",))
+                tls_row = tls_cur.fetchone()
+            if tls_row and tls_row[0] == "labrole_northstar" and tls_row[1] >= 1:
+                print("PASS | TLS client reaches real Engine and preserves tenant role binding")
+            else:
+                print(f"FAIL | TLS client tenant binding unexpected: {tls_row!r}", file=sys.stderr)
+                return 1
+            stop_process(tls_engine)
+            tls_engine = None
+
         print("\nPASS | all live Enterprise Lab suites completed against the real Proxima Engine")
         return 0
     except (OSError, RuntimeError, subprocess.SubprocessError) as exc:
@@ -294,6 +392,7 @@ def main() -> int:
         print_log(api_log)
         return 1
     finally:
+        stop_process(tls_engine)
         stop_process(outage_engine)
         stop_process(api)
         stop_process(engine)
