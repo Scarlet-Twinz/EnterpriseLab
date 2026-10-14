@@ -151,7 +151,7 @@ def main() -> int:
             suite_log = report_dir / (Path(suite).stem + ".log")
             log_content = result.stdout or ""
             if result.stderr:
-                log_content += "\\n--- STDERR ---\\n" + result.stderr
+                log_content += "\n--- STDERR ---\n" + result.stderr
             suite_log.write_text(log_content, encoding="utf-8")
             if result.stdout:
                 print(result.stdout, end="")
@@ -191,7 +191,7 @@ def main() -> int:
             capture_output=True,
             text=True,
         )
-        verify_log = (verify_result.stdout or "") + "\\n--- STDERR ---\\n" + (verify_result.stderr or "")
+        verify_log = (verify_result.stdout or "") + "\n--- STDERR ---\n" + (verify_result.stderr or "")
         (report_dir / "product-proxima-verify.log").write_text(verify_log, encoding="utf-8")
         if verify_result.returncode == 0:
             print("PASS | product Proxima Verify harness executed against the real Engine")
@@ -214,7 +214,7 @@ def main() -> int:
                 print(verify_result.stderr, file=sys.stderr, end="")
             return verify_result.returncode or 1
 
-        print("\\nPASS | all live Enterprise Lab suites completed against the real Proxima Engine")
+        print("\nPASS | all live Enterprise Lab suites completed against the real Proxima Engine")
         return 0
     except (OSError, RuntimeError, subprocess.SubprocessError) as exc:
         print(f"FAIL | real Engine integration | {type(exc).__name__}: {exc}", file=sys.stderr)
