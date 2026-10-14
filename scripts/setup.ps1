@@ -15,7 +15,9 @@ function New-Secret([int]$Bytes = 32) {
 
 $signingKey = New-Secret 48
 $adminPassword = New-Secret 32
-$gatewayPassword = New-Secret 32
+$tenantAPassword = New-Secret 32
+$tenantBPassword = New-Secret 32
+$tenantCPassword = New-Secret 32
 $keyA = "elab_" + (New-Secret 24)
 $keyB = "elab_" + (New-Secret 24)
 $keyC = "elab_" + (New-Secret 24)
@@ -25,14 +27,19 @@ $apiKeysObject[$keyA] = @{ tenant_id = "tenant_a"; role = "admin" }
 $apiKeysObject[$keyB] = @{ tenant_id = "tenant_b"; role = "admin" }
 $apiKeysObject[$keyC] = @{ tenant_id = "tenant_c"; role = "viewer" }
 $apiKeys = $apiKeysObject | ConvertTo-Json -Compress -Depth 4
+$tenantPasswordsObject = [ordered]@{ tenant_a = $tenantAPassword; tenant_b = $tenantBPassword; tenant_c = $tenantCPassword }
+$tenantPasswords = $tenantPasswordsObject | ConvertTo-Json -Compress
 
 $content = @"
 LAB_API_KEYS=$apiKeys
-PROXIMA_SIGNING_KEY=$signingKey
+PROXIMA_TENANT_SIGNING_KEY=$signingKey
 PROXIMA_TOKEN_TTL_SECONDS=300
 LAB_POSTGRES_ADMIN_PASSWORD=$adminPassword
-PROXIMA_GATEWAY_PASSWORD=$gatewayPassword
-PROXIMA_DATABASE_URL=postgresql://proxima:replace-me@127.0.0.1:6432/enterprise_lab
+LAB_TENANT_A_DB_PASSWORD=$tenantAPassword
+LAB_TENANT_B_DB_PASSWORD=$tenantBPassword
+LAB_TENANT_C_DB_PASSWORD=$tenantCPassword
+LAB_TENANT_DB_PASSWORDS=$tenantPasswords
+PROXIMA_DATABASE_URL=postgresql://proxima@127.0.0.1:6432/enterprise_lab
 LAB_ADMIN_DATABASE_URL=postgresql://lab_admin:$adminPassword@127.0.0.1:55432/enterprise_lab
 LAB_BASE_URL=http://127.0.0.1:8088
 LAB_API_KEY_A=$keyA
@@ -54,7 +61,7 @@ Write-Host ""
 Write-Host "Enterprise Lab local secrets created in .env (ignored by Git)."
 Write-Host "The isolated PostgreSQL database is starting on 127.0.0.1:55432."
 Write-Host "Next: configure the REAL Proxima Engine to use database enterprise_lab,"
-Write-Host "upstream role proxima_gateway, the PROXIMA_GATEWAY_PASSWORD from .env,"
-Write-Host "tenant roles tenant_a/tenant_b/tenant_c, and the same PROXIMA_SIGNING_KEY."
+Write-Host "tenant roles proxima_tenant_tenant_a/b/c and their passwords from .env,"
+Write-Host "tenant roles tenant_a/tenant_b/tenant_c, and the same PROXIMA_TENANT_SIGNING_KEY."
 Write-Host "Then set the actual Engine listener password in PROXIMA_DATABASE_URL and run the API."
 Write-Host "Never commit .env or paste its secrets into chat."
