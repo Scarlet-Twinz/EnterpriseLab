@@ -273,17 +273,31 @@ def create_project(payload: ProjectCreate, principal: PrincipalDep) -> dict[str,
 
 @app.get("/api/v1/documents")
 def list_documents(principal: PrincipalDep) -> list[dict[str, Any]]:
-    return _run(
-        principal,
-        """SELECT id, title, classification, body, created_at FROM documents
-           WHERE tenant_id = %s ORDER BY id""",
-        (principal.tenant_id,),
-    )
+    # Tenant isolation is enforced by Proxima/PostgreSQL RLS; classification access
+    # is separate application authorization within that tenant.
+    if principal.role == "admin":
+        sql = """SELECT id, title, classification, body, created_at FROM documents
+                 WHERE tenant_id = %s ORDER BY id"""
+        params = (principal.tenant_id,)
+    elif principal.role == "operator":
+        sql = """SELECT id, title, classification, body, created_at FROM documents
+                 WHERE tenant_id = %s AND classification IN ('internal', 'confidential')
+                 ORDER BY id"""
+        params = (principal.tenant_id,)
+    else:
+        sql = """SELECT id, title, classification, body, created_at FROM documents
+                 WHERE tenant_id = %s AND classification = 'internal' ORDER BY id"""
+        params = (principal.tenant_id,)
+    return _run(principal, sql, params)
+
+
 
 
 @app.post("/api/v1/documents", status_code=201)
 def create_document(payload: DocumentCreate, principal: PrincipalDep) -> dict[str, Any]:
     _require_write(principal)
+    if payload.classification == "restricted" and principal.role != "admin":
+        raise HTTPException(status_code=403, detail="Admin role required for restricted documents")
     return _run(
         principal,
         """INSERT INTO documents (tenant_id, title, classification, body)
