@@ -177,7 +177,11 @@ def main() -> int:
                         stop(engine_process)
                         engine_process = None
                 if query_succeeded != should_succeed:
-                    raise RuntimeError(f"FAIL | upstream TLS {label} | expected success={should_succeed}, got {query_succeeded}; see {engine_log}")
+                    engine_details = engine_log.read_text(encoding="utf-8", errors="replace")[-6000:] if engine_log.exists() else "(no engine log)"
+                    raise RuntimeError(
+                        f"FAIL | upstream TLS {label} | expected success={should_succeed}, got {query_succeeded}; "
+                        f"see {engine_log}\\nEngine log tail:\\n{engine_details}"
+                    )
                 print(f"PASS | upstream TLS verify-full | {label}")
             (reports / "upstream-tls-acceptance.txt").write_text(
                 "PASS | valid CA + matching hostname succeeds\n"
