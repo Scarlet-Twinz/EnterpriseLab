@@ -151,6 +151,8 @@ def main() -> int:
                     "PROXIMA_TENANT_SIGNING_KEY": os.environ["PROXIMA_TENANT_SIGNING_KEY"],
                     "PROXIMA_UPSTREAM_TLS_MODE": "verify-full",
                     "PROXIMA_UPSTREAM_TLS_CA_FILE": trust_file,
+                    "PROXIMA_TLS_CERT_FILE": str(server_cert),
+                    "PROXIMA_TLS_KEY_FILE": str(server_key),
                     "PROXIMA_UPSTREAM_TLS_SERVER_NAME": server_name,
                     "PROXIMA_DASHBOARD_ENABLED": "false",
                     "PROXIMA_DASHBOARD_LISTEN_ADDR": f"127.0.0.1:{9480 + listen_port - 6435}",
@@ -161,7 +163,7 @@ def main() -> int:
                     wait_engine(engine_process, engine_log, listen_port)
                     token = make_proxima_token("northstar")
                     conninfo = make_conninfo(
-                        f"postgresql://proxima@127.0.0.1:{listen_port}/enterprise_lab?sslmode=disable",
+                        f"postgresql://proxima@127.0.0.1:{listen_port}/enterprise_lab?sslmode=require&channel_binding=disable",
                         user="proxima", password=tenant_passwords["northstar"],
                         options=f"-c proxima_tenant_token={token}", connect_timeout=5,
                     )
