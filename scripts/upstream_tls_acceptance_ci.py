@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import os
 import re
+import shutil
 import socket
 import subprocess
 import tempfile
@@ -110,6 +111,13 @@ def main() -> int:
                  "-keyout", str(rogue_key), "-out", str(rogue_ca), "-days", "2",
                  "-subj", "/CN=Untrusted Lab CA"])
 
+            # Keep a separate runner-owned copy for the Engine's client-facing TLS listener.
+            engine_cert, engine_key = tlsdir / "engine-client.crt", tlsdir / "engine-client.key"
+            shutil.copyfile(server_cert, engine_cert)
+            shutil.copyfile(server_key, engine_key)
+            engine_cert.chmod(0o644)
+            engine_key.chmod(0o600)
+
             # Mount a disposable certificate directory with PostgreSQL-compatible key ownership/mode.
             tlsdir.chmod(0o755)  # PostgreSQL must traverse the bind-mounted temporary directory.
             postgres_uid = run(["docker", "run", "--rm", "postgres:16-alpine", "id", "-u", "postgres"]).stdout.strip()
@@ -151,8 +159,8 @@ def main() -> int:
                     "PROXIMA_TENANT_SIGNING_KEY": os.environ["PROXIMA_TENANT_SIGNING_KEY"],
                     "PROXIMA_UPSTREAM_TLS_MODE": "verify-full",
                     "PROXIMA_UPSTREAM_TLS_CA_FILE": trust_file,
-                    "PROXIMA_TLS_CERT_FILE": str(server_cert),
-                    "PROXIMA_TLS_KEY_FILE": str(server_key),
+                    "PROXIMA_TLS_CERT_FILE": str(engine_cert),
+                    "PROXIMA_TLS_KEY_FILE": str(engine_key),
                     "PROXIMA_UPSTREAM_TLS_SERVER_NAME": server_name,
                     "PROXIMA_DASHBOARD_ENABLED": "false",
                     "PROXIMA_DASHBOARD_LISTEN_ADDR": f"127.0.0.1:{9480 + listen_port - 6435}",
