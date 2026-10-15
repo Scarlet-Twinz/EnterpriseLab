@@ -166,12 +166,15 @@ def main() -> int:
                         options=f"-c proxima_tenant_token={token}", connect_timeout=5,
                     )
                     query_succeeded = False
+                    query_error = None
+                    row = None
                     try:
                         with psycopg.connect(conninfo) as conn, conn.cursor() as cur:
                             cur.execute("SELECT current_user, count(*) FROM customers WHERE tenant_id = %s GROUP BY current_user", ("northstar",))
                             row = cur.fetchone()
                             query_succeeded = bool(row and row[0] == "labrole_northstar" and row[1] >= 1)
-                    except psycopg.Error:
+                    except psycopg.Error as exc:
+                        query_error = repr(exc)
                         query_succeeded = False
                     finally:
                         stop(engine_process)
@@ -180,7 +183,7 @@ def main() -> int:
                     engine_details = engine_log.read_text(encoding="utf-8", errors="replace")[-6000:] if engine_log.exists() else "(no engine log)"
                     raise RuntimeError(
                         f"FAIL | upstream TLS {label} | expected success={should_succeed}, got {query_succeeded}; "
-                        f"see {engine_log}\\nEngine log tail:\\n{engine_details}"
+                        f"see {engine_log}\\nquery_error={query_error!r}; returned_row={row!r}\\nEngine log tail:\\n{engine_details}"
                     )
                 print(f"PASS | upstream TLS verify-full | {label}")
             (reports / "upstream-tls-acceptance.txt").write_text(
