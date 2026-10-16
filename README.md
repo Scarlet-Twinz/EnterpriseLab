@@ -4,9 +4,9 @@ Enterprise Lab is a fictional, backend-only enterprise customer used to validate
 
 The company simulator owns realistic business workflows and synthetic data. Its application database traffic is configured to pass through the **real Proxima Engine**. Security tests record observed outcomes; they do not treat mocks or direct PostgreSQL connections as proof of Proxima enforcement.
 
-## First implementation
+## Architecture and acceptance
 
-Read the [simulated US customer profile](docs/COMPANY_PROFILE.md) for the business scenario and acceptance goals. See [source-inspection findings](docs/PRODUCT_FINDINGS.md) for integration risks found in Agata Proxima; no product files were changed.
+Read the [simulated customer profile](docs/COMPANY_PROFILE.md) for the business scenario and acceptance goals. The [integration contract](docs/INTEGRATION_CONTRACT.md) documents the boundary between this test application and the real Engine. Current product behavior and production gates are maintained in the [Agata Proxima documentation](https://github.com/Scarlet-Twinz/Agata-proxima/tree/main/docs).
 
 - FastAPI business API for customers, employees, projects, invoices, and confidential documents.
 - PostgreSQL schema with tenant-specific roles and row-level security (RLS).
