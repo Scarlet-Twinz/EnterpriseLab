@@ -36,11 +36,12 @@ def wait_for_enforcement(process: subprocess.Popen, log_path: Path, timeout_seco
         # Tracing's ANSI styling can split field names and values with escape
         # sequences, so strip those before checking the explicit boolean field.
         normalized = re.sub(r"\x1b\[[0-9;]*m", "", log_text).replace(" ", "")
-        if "tenant_enforcement=false" in normalized:
+        enforcement_states = re.findall(r"tenant_enforcement=(true|false)", normalized)
+        if enforcement_states and enforcement_states[-1] == "false":
             raise RuntimeError(
                 "Proxima Engine started with tenant enforcement disabled; refusing acceptance run."
             )
-        if "tenant_enforcement=true" in normalized:
+        if enforcement_states and enforcement_states[-1] == "true":
             return
         time.sleep(0.25)
     raise RuntimeError(
@@ -94,6 +95,31 @@ def stop_process(process: subprocess.Popen | None) -> None:
         process.wait(timeout=5)
 
 
+def start_engine(engine_binary: Path, log_path: Path, *, append: bool) -> subprocess.Popen:
+    """Start a fresh Engine process and require explicit tenant enforcement."""
+    with log_path.open("a" if append else "w", encoding="utf-8") as log:
+        process = subprocess.Popen(
+            [str(engine_binary)],
+            cwd=engine_binary.parent.parent.parent,
+            env=os.environ.copy(),
+            stdout=log,
+            stderr=subprocess.STDOUT,
+            start_new_session=True,
+        )
+    wait_for_port(process, log_path)
+    return process
+
+
+def restart_engine(
+    process: subprocess.Popen | None,
+    engine_binary: Path,
+    log_path: Path,
+) -> subprocess.Popen:
+    """Reset in-memory breaker state between independent acceptance suites."""
+    stop_process(process)
+    return start_engine(engine_binary, log_path, append=True)
+
+
 def main() -> int:
     root = Path(__file__).resolve().parents[1]
     default_binary = root / "agata-proxima" / "target" / "debug" / "proxima-engine"
@@ -115,16 +141,7 @@ def main() -> int:
     tls_engine = None
 
     try:
-        with engine_log.open("w", encoding="utf-8") as log:
-            engine = subprocess.Popen(
-                [str(engine_binary)],
-                cwd=engine_binary.parent.parent.parent,
-                env=os.environ.copy(),
-                stdout=log,
-                stderr=subprocess.STDOUT,
-                start_new_session=True,
-            )
-            wait_for_port(engine, engine_log)
+        engine = start_engine(engine_binary, engine_log, append=False)
 
         with api_log.open("w", encoding="utf-8") as log:
             api = subprocess.Popen(
@@ -145,7 +162,12 @@ def main() -> int:
             "scripts/attack_suite.py",
             "scripts/performance_suite.py",
         ]
-        for suite in suites:
+        for suite_index, suite in enumerate(suites):
+            if suite_index > 0:
+                # Hostile protocol probes intentionally trip the per-source-IP
+                # breaker. Restart between suites so one suite cannot poison
+                # unrelated API or performance checks sharing loopback.
+                engine = restart_engine(engine, engine_binary, engine_log)
             print(f"\n========== {suite} against the real Proxima Engine ==========")
             result = subprocess.run(
                 [sys.executable, suite],
@@ -170,10 +192,10 @@ def main() -> int:
                 print_log(engine_log)
                 print_log(api_log)
                 return result.returncode or 1
-        # Exercise the product repository's own verification harness as a
-        # customer would, without editing product source. A known source defect
-        # (missing TTL argument to the embedded Python signer) is recorded as a
-        # reproduced finding rather than silently substituted by the lab suite.
+        # Run the product verification harness with a fresh Engine process.
+        # The preceding protocol/attack suites may intentionally trip the
+        # in-memory per-source-IP breaker during their negative test cases.
+        engine = restart_engine(engine, engine_binary, engine_log)
         verify_script = root / "agata-proxima" / "tools" / "proxima-verify.sh"
         tenant_passwords = json.loads(os.getenv("LAB_TENANT_DB_PASSWORDS", "{}"))
         verify_env = os.environ.copy()
@@ -205,11 +227,6 @@ def main() -> int:
             print("PASS | product Proxima Verify harness executed against the real Engine")
             if verify_result.stdout:
                 print(verify_result.stdout, end="")
-        elif "IndexError: list index out of range" in (verify_result.stderr or ""):
-            print(
-                "KNOWN DEFECT REPRODUCED | product tools/proxima-verify.sh fails before its checks: "
-                "the embedded Python reads a TTL argument that the shell invocation omits"
-            )
         else:
             print(
                 "FAIL | product Proxima Verify harness had an unexpected failure "
