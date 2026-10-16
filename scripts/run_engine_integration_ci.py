@@ -97,6 +97,10 @@ def stop_process(process: subprocess.Popen | None) -> None:
 
 def start_engine(engine_binary: Path, log_path: Path, *, append: bool) -> subprocess.Popen:
     """Start a fresh Engine process and require explicit tenant enforcement."""
+    # The prior suite's output is already stored in its own report. Clear the
+    # Engine log on restart so enforcement checks cannot match a previous run.
+    if append:
+        log_path.write_text("", encoding="utf-8")
     with log_path.open("a" if append else "w", encoding="utf-8") as log:
         process = subprocess.Popen(
             [str(engine_binary)],
